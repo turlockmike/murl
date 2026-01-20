@@ -14,11 +14,9 @@ MCP (Model Context Protocol) is an open standard developed by Anthropic for AI m
 pip install murl
 ```
 
-### Using Homebrew (Coming Soon)
+### Using Homebrew
 
-```bash
-brew install murl
-```
+Homebrew support is planned. For now, please use pip installation.
 
 ### From Source
 

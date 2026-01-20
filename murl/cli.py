@@ -8,7 +8,7 @@ from murl import __version__
 @click.version_option(version=__version__)
 def main():
     """murl - MCP Curl: A curl-like CLI tool for Model Context Protocol (MCP) servers.
-    
+
     MCP (Model Context Protocol) is an open standard for AI models to access
     external data sources and tools. murl provides a command-line interface
     to interact with MCP servers.
