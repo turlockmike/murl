@@ -94,6 +94,12 @@ def test_parse_data_flags_json():
     assert result == {"city": "Paris", "metric": True}
 
 
+def test_parse_data_flags_json_array_error():
+    """Test that JSON arrays in data flags raise an error."""
+    with pytest.raises(ValueError, match="JSON arrays are not supported"):
+        parse_data_flags(('[1, 2, 3]',))
+
+
 def test_parse_data_flags_mixed():
     """Test parsing mixed data flags."""
     result = parse_data_flags(("name=Alice", '{"age": 25}'))

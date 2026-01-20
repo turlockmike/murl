@@ -74,17 +74,27 @@ def parse_data_flags(data_flags: Tuple[str, ...]) -> Dict[str, Any]:
         
     Returns:
         Dictionary of parsed key-value pairs
+        
+    Note:
+        JSON objects (starting with '{') are merged into the result.
+        JSON arrays (starting with '[') are not supported as they don't
+        represent key-value pairs needed for MCP arguments.
     """
     result = {}
     
     for data in data_flags:
-        # Check if it's a JSON string
-        if data.strip().startswith('{'):
+        # Check if it's a JSON object
+        stripped = data.strip()
+        if stripped.startswith('{'):
             try:
                 parsed = json.loads(data)
+                if not isinstance(parsed, dict):
+                    raise ValueError(f"JSON in -d flag must be an object, not {type(parsed).__name__}")
                 result.update(parsed)
             except json.JSONDecodeError:
                 raise ValueError(f"Invalid JSON in -d flag: {data}")
+        elif stripped.startswith('['):
+            raise ValueError(f"JSON arrays are not supported in -d flag. Use key=value or JSON objects.")
         else:
             # Parse key=value format
             if '=' not in data:
@@ -109,8 +119,9 @@ def map_virtual_path_to_method(virtual_path: str, data: Dict[str, Any]) -> Tuple
     # Remove leading slash and split
     parts = virtual_path.lstrip('/').split('/')
     
-    if len(parts) == 0:
-        raise ValueError("Invalid virtual path")
+    # Check for empty path
+    if not parts or parts == ['']:
+        raise ValueError("Invalid virtual path: empty path")
     
     category = parts[0]  # tools, resources, or prompts
     
