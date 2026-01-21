@@ -15,7 +15,6 @@ NC='\033[0m' # No Color
 # Cleanup function
 cleanup() {
     if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
-        cd /
         rm -rf "$TEMP_DIR"
     fi
 }
@@ -84,7 +83,7 @@ fi
 cd "$TEMP_DIR"
 
 # Clone the repository
-if ! git clone https://github.com/turlockmike/murl.git; then
+if ! git clone --single-branch https://github.com/turlockmike/murl.git; then
     echo -e "${RED}Error: Failed to clone repository${NC}"
     exit 1
 fi
