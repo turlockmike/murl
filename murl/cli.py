@@ -324,6 +324,12 @@ def run_upgrade(ctx, param, value):
     
     click.echo("Upgrading murl...")
     
+    # Helper function for error handling
+    def show_error_and_exit(error_msg: str):
+        click.echo(f"Error: {error_msg}", err=True)
+        click.echo("Please try upgrading manually with: pip install --upgrade mcp-curl", err=True)
+        ctx.exit(1)
+    
     # Use pip to upgrade mcp-curl package
     # Set a reasonable timeout to prevent hanging
     try:
@@ -340,13 +346,9 @@ def run_upgrade(ctx, param, value):
             click.echo("✓ Upgrade complete!")
             ctx.exit(0)
         else:
-            click.echo(f"Error during upgrade: {result.stderr}", err=True)
-            click.echo("Please try upgrading manually with: pip install --upgrade mcp-curl", err=True)
-            ctx.exit(1)
+            show_error_and_exit(f"Upgrade failed:\n{result.stderr}")
     except subprocess.TimeoutExpired:
-        click.echo("Error: Upgrade timed out after 5 minutes.", err=True)
-        click.echo("Please try upgrading manually with: pip install --upgrade mcp-curl", err=True)
-        ctx.exit(1)
+        show_error_and_exit("Upgrade timed out after 5 minutes.")
 
 
 @click.command()
