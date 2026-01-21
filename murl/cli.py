@@ -500,7 +500,7 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
                 else:
                     click.echo(f"Error: Could not connect to server at {base_url}", err=True)
                     click.echo(f"       {exc_msg}", err=True)
-            elif exc_type == "TimeoutError" or "Timeout" in exc_msg:
+            elif (exc_type == "TimeoutError") or ("Timeout" in exc_msg):
                 click.echo(f"Error: Request timeout to {base_url}", err=True)
             else:
                 click.echo(f"Error: {exc_msg}", err=True)

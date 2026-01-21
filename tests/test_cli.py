@@ -445,7 +445,7 @@ def test_cli_dns_resolution_error():
 
 def test_cli_timeout_error():
     """Test handling timeout error."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
     
     runner = CliRunner()
     
