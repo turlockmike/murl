@@ -12,6 +12,17 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Cleanup function
+cleanup() {
+    if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
+        cd /
+        rm -rf "$TEMP_DIR"
+    fi
+}
+
+# Set trap to cleanup on exit
+trap cleanup EXIT
+
 echo -e "${GREEN}Installing murl...${NC}"
 
 # Check if Python is installed
@@ -65,12 +76,16 @@ echo -e "${GREEN}Downloading murl from GitHub...${NC}"
 
 # Create temporary directory
 TEMP_DIR=$(mktemp -d)
+if [[ -z "$TEMP_DIR" || ! -d "$TEMP_DIR" ]]; then
+    echo -e "${RED}Error: Failed to create temporary directory${NC}"
+    exit 1
+fi
+
 cd "$TEMP_DIR"
 
 # Clone the repository
 if ! git clone https://github.com/turlockmike/murl.git; then
     echo -e "${RED}Error: Failed to clone repository${NC}"
-    rm -rf "$TEMP_DIR"
     exit 1
 fi
 
@@ -105,16 +120,10 @@ else
             echo -e "${GREEN}✓ murl installed successfully${NC}"
         else
             echo -e "${RED}Error: Cannot install murl. Please run as root or install pip for your user.${NC}"
-            cd /
-            rm -rf "$TEMP_DIR"
             exit 1
         fi
     fi
 fi
-
-# Clean up
-cd /
-rm -rf "$TEMP_DIR"
 
 # Verify installation
 if command -v murl &> /dev/null; then
