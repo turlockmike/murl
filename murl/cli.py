@@ -11,6 +11,13 @@ import requests
 from murl import __version__
 
 
+# Constants for session-based SSE
+SSE_CONNECTION_TIMEOUT = 30  # Timeout for establishing SSE connection
+SSE_POST_TIMEOUT = 10  # Timeout for POST request to session endpoint
+SSE_READ_TIMEOUT = 10  # Timeout for reading response from SSE stream
+SSE_LOG_TRUNCATE_LENGTH = 100  # Max characters to show in verbose SSE logs
+
+
 def parse_url(full_url: str) -> Tuple[str, str]:
     """Parse the full URL into base URL and virtual path.
     
@@ -238,7 +245,7 @@ def try_session_based_sse_request(
             sse_url,
             headers={'Accept': 'text/event-stream'},
             stream=True,
-            timeout=30
+            timeout=SSE_CONNECTION_TIMEOUT
         )
         
         if sse_response.status_code != 200:
@@ -246,7 +253,7 @@ def try_session_based_sse_request(
         
         # Parse SSE stream to get session endpoint
         session_endpoint = None
-        lines_iter = sse_response.iter_lines(decode_unicode=True, chunk_size=1)
+        lines_iter = sse_response.iter_lines(decode_unicode=True)
         
         # Read initial lines to get session endpoint
         for line in lines_iter:
@@ -277,7 +284,7 @@ def try_session_based_sse_request(
             session_endpoint,
             json=jsonrpc_request,
             headers={'Content-Type': 'application/json'},
-            timeout=10
+            timeout=SSE_POST_TIMEOUT
         )
         
         # 202 Accepted means response will come via SSE stream
@@ -294,14 +301,13 @@ def try_session_based_sse_request(
         
         # Set a timeout for reading the response
         start_time = time.time()
-        timeout_seconds = 10
         
         if verbose:
             click.echo("Reading response from SSE stream...", err=True)
         
         # Continue reading from the same iterator
         for line in lines_iter:
-            if time.time() - start_time > timeout_seconds:
+            if time.time() - start_time > SSE_READ_TIMEOUT:
                 if verbose:
                     click.echo("Timeout waiting for response in SSE stream", err=True)
                 break
@@ -310,7 +316,9 @@ def try_session_based_sse_request(
                 continue
             
             if verbose and line:
-                click.echo(f"SSE line: {line[:100]}", err=True)  # Truncate long lines
+                # Truncate long lines for readability
+                display_line = line[:SSE_LOG_TRUNCATE_LENGTH] if len(line) > SSE_LOG_TRUNCATE_LENGTH else line
+                click.echo(f"SSE line: {display_line}", err=True)
             
             if line.startswith('data: '):
                 data_str = line[6:]  # Remove 'data: ' prefix
@@ -330,7 +338,7 @@ def try_session_based_sse_request(
         
         return response_data
         
-    except (requests.exceptions.RequestException, requests.exceptions.Timeout):
+    except requests.exceptions.RequestException:
         if verbose:
             click.echo("Session-based SSE connection failed", err=True)
         return None
