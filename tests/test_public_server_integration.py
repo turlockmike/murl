@@ -11,8 +11,9 @@ from click.testing import CliRunner
 from murl.cli import main
 
 
-# Cloudflare demo server configuration
-CLOUDFLARE_DEMO_URL = "https://demo-day.mcp.cloudflare.com/sse"
+# Public MCP server configurations
+FETCH_SERVER_URL = "https://remote.mcpservers.org/fetch/mcp"
+DEEPWIKI_URL = "https://mcp.deepwiki.com/mcp"
 
 
 def is_server_reachable(url: str) -> bool:
@@ -32,17 +33,17 @@ def is_server_reachable(url: str) -> bool:
 
 
 @pytest.mark.skipif(
-    not is_server_reachable(CLOUDFLARE_DEMO_URL),
-    reason="Cloudflare demo server is not reachable"
+    not is_server_reachable(FETCH_SERVER_URL),
+    reason="Fetch server is not reachable"
 )
-def test_cloudflare_demo_server_list_tools():
-    """Test listing tools from the Cloudflare demo server.
+def test_fetch_server_list_tools():
+    """Test listing tools from the Fetch server.
     
     This test validates that murl can connect to and interact with
-    the public Cloudflare MCP demo server.
+    the public Fetch MCP server.
     """
     runner = CliRunner()
-    result = runner.invoke(main, [f"{CLOUDFLARE_DEMO_URL}/tools"])
+    result = runner.invoke(main, [f"{FETCH_SERVER_URL}/tools"])
     
     # The test should succeed if the server is reachable
     # If it fails, we want to see the output for debugging
@@ -58,16 +59,16 @@ def test_cloudflare_demo_server_list_tools():
 
 
 @pytest.mark.skipif(
-    not is_server_reachable(CLOUDFLARE_DEMO_URL),
-    reason="Cloudflare demo server is not reachable"
+    not is_server_reachable(FETCH_SERVER_URL),
+    reason="Fetch server is not reachable"
 )
-def test_cloudflare_demo_server_connectivity():
-    """Test basic connectivity to the Cloudflare demo server.
+def test_fetch_server_connectivity():
+    """Test basic connectivity to the Fetch server.
     
     This is a lightweight test that just verifies the server responds.
     """
     runner = CliRunner()
-    result = runner.invoke(main, [f"{CLOUDFLARE_DEMO_URL}/tools"])
+    result = runner.invoke(main, [f"{FETCH_SERVER_URL}/tools"])
     
     # Check exit code first - connection failures typically result in non-zero codes
     # Exit code 0 means success, exit code 1 may indicate server-side issues but connection worked
@@ -80,3 +81,29 @@ def test_cloudflare_demo_server_connectivity():
             json.loads(result.output)
         except json.JSONDecodeError:
             pytest.skip(f"Server returned non-JSON response: {result.output[:100]}")
+
+
+@pytest.mark.skipif(
+    not is_server_reachable(DEEPWIKI_URL),
+    reason="DeepWiki server is not reachable"
+)
+def test_deepwiki_server_list_tools():
+    """Test listing tools from the DeepWiki server.
+    
+    This test validates that murl can connect to and interact with
+    the DeepWiki MCP server.
+    """
+    runner = CliRunner()
+    result = runner.invoke(main, [f"{DEEPWIKI_URL}/tools"])
+    
+    # The test should succeed if the server is reachable
+    # If it fails, we want to see the output for debugging
+    if result.exit_code != 0:
+        pytest.skip(f"Server returned error: {result.output}")
+    
+    # Verify we got a valid JSON response
+    try:
+        output = json.loads(result.output)
+        assert isinstance(output, list), "Expected a list of tools"
+    except json.JSONDecodeError as e:
+        pytest.fail(f"Invalid JSON response: {e}\nOutput: {result.output}")
