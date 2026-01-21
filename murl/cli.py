@@ -149,11 +149,20 @@ def map_virtual_path_to_method(virtual_path: str, data: Dict[str, Any]) -> Tuple
         if len(parts) == 1:
             # /resources -> resources/list
             return 'resources/list', {}
-        elif len(parts) == 2 and parts[1] == 'read':
-            # /resources/read -> resources/read
-            return 'resources/read', data
         else:
-            raise ValueError(f"Invalid resources path: {virtual_path}")
+            # /resources/<path> -> resources/read with file:// URI
+            # Join all parts after 'resources' to form the file path
+            # Prepend '/' to make it an absolute path: /resources/path/to/file -> file:///path/to/file
+            file_path = '/'.join(parts[1:])
+            # Handle empty path case (e.g., /resources/ with trailing slash)
+            if not file_path or file_path == '':
+                raise ValueError("Invalid resources path: path cannot be empty after /resources/")
+            # Ensure absolute path starts with '/'
+            if not file_path.startswith('/'):
+                file_path = '/' + file_path
+            uri = f'file://{file_path}'
+            # Merge with any additional data parameters passed via -d flags
+            return 'resources/read', {'uri': uri, **data}
     
     elif category == 'prompts':
         if len(parts) == 1:
@@ -374,6 +383,9 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
         
         # Call a tool with JSON data
         murl http://localhost:3000/tools/config -d '{"theme": "dark"}'
+        
+        # Read a resource (file path)
+        murl http://localhost:3000/resources/path/to/file
         
         # Add authorization header
         murl http://localhost:3000/prompts -H "Authorization: Bearer token123"

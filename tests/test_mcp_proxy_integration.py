@@ -161,12 +161,11 @@ def test_mcp_proxy_read_resource(mcp_proxy_server):
     
     This simulates:
     $ mcp-proxy --sse-port 8766 my-stdio-mcp-server
-    $ murl http://localhost:8766/resources/read -d uri=file:///data/file.txt
+    $ murl http://localhost:8766/resources/data/file.txt
     """
     runner = CliRunner()
     result = runner.invoke(main, [
-        f"{mcp_proxy_server}/resources/read",
-        "-d", "uri=file:///data/file.txt"
+        f"{mcp_proxy_server}/resources/data/file.txt"
     ])
     
     assert result.exit_code == 0

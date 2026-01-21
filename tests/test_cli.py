@@ -201,11 +201,49 @@ def test_map_resources_list():
 
 
 def test_map_resources_read():
-    """Test mapping /resources/read to resources/read."""
-    data = {"uri": "file:///path/to/file"}
-    method, params = map_virtual_path_to_method("/resources/read", data)
+    """Test mapping /resources/<path> to resources/read."""
+    method, params = map_virtual_path_to_method("/resources/path/to/file", {})
     assert method == "resources/read"
     assert params == {"uri": "file:///path/to/file"}
+
+
+def test_map_resources_read_with_additional_params():
+    """Test mapping /resources/<path> to resources/read with additional parameters."""
+    data = {"format": "json", "encoding": "utf-8"}
+    method, params = map_virtual_path_to_method("/resources/path/to/file", data)
+    assert method == "resources/read"
+    assert params == {"uri": "file:///path/to/file", "format": "json", "encoding": "utf-8"}
+
+
+def test_map_resources_read_empty_path():
+    """Test mapping /resources/ with empty path raises error."""
+    # Empty path after resources should raise ValueError
+    with pytest.raises(ValueError, match="path cannot be empty"):
+        map_virtual_path_to_method("/resources/", {})
+
+
+def test_map_resources_read_with_special_characters():
+    """Test mapping /resources/<path> with special characters."""
+    # Test path with spaces (URL encoded as %20)
+    method, params = map_virtual_path_to_method("/resources/path/to/my%20file.txt", {})
+    assert method == "resources/read"
+    assert params == {"uri": "file:///path/to/my%20file.txt"}
+
+
+def test_map_resources_read_with_multiple_slashes():
+    """Test mapping /resources/<path> with consecutive slashes in path."""
+    # Multiple consecutive slashes should be preserved as part of the path
+    method, params = map_virtual_path_to_method("/resources/path//to///file", {})
+    assert method == "resources/read"
+    assert params == {"uri": "file:///path//to///file"}
+
+
+def test_map_resources_read_relative_path():
+    """Test mapping /resources/<path> with relative path gets leading slash."""
+    # Relative path should get leading slash prepended
+    method, params = map_virtual_path_to_method("/resources/relative/path", {})
+    assert method == "resources/read"
+    assert params == {"uri": "file:///relative/path"}
 
 
 def test_map_prompts_list():
@@ -307,14 +345,14 @@ def test_cli_read_resource(mcp_server):
     """Test reading a resource with real server."""
     runner = CliRunner()
     result = runner.invoke(main, [
-        f"{mcp_server}/resources/read",
-        "-d", "uri=file:///test.txt"
+        f"{mcp_server}/resources/test.txt"
     ])
     
     assert result.exit_code == 0
     output = json.loads(result.output)
     assert output["uri"] == "file:///test.txt"
     assert output["content"] == "Mock file content"
+
 
 
 def test_cli_list_prompts(mcp_server):
