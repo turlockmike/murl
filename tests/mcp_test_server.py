@@ -1,9 +1,8 @@
 """Real MCP-compatible HTTP JSON-RPC test server for integration testing."""
 
-import asyncio
 import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 
 class MCPJSONRPCHandler(BaseHTTPRequestHandler):
@@ -75,7 +74,7 @@ class MCPJSONRPCHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(response).encode('utf-8'))
     
-    def handle_tools_list(self) -> list[Dict[str, Any]]:
+    def handle_tools_list(self) -> List[Dict[str, Any]]:
         """Handle tools/list request."""
         return [
             {
@@ -128,7 +127,7 @@ class MCPJSONRPCHandler(BaseHTTPRequestHandler):
         else:
             raise ValueError(f"Unknown tool: {name}")
     
-    def handle_resources_list(self) -> list[Dict[str, Any]]:
+    def handle_resources_list(self) -> List[Dict[str, Any]]:
         """Handle resources/list request."""
         return [
             {
@@ -151,7 +150,7 @@ class MCPJSONRPCHandler(BaseHTTPRequestHandler):
             "content": "Mock file content"
         }
     
-    def handle_prompts_list(self) -> list[Dict[str, Any]]:
+    def handle_prompts_list(self) -> List[Dict[str, Any]]:
         """Handle prompts/list request."""
         return [
             {

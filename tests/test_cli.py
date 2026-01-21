@@ -5,6 +5,7 @@ import pytest
 import subprocess
 import time
 import sys
+import requests
 from pathlib import Path
 from click.testing import CliRunner
 from murl.cli import (
@@ -39,13 +40,30 @@ def mcp_server():
         text=True
     )
     
-    # Wait for server to start
-    time.sleep(2)
+    # Wait for server to start with health check
+    import requests
+    max_retries = 10
+    retry_delay = 0.2
     
-    # Check if server is running
-    if process.poll() is not None:
-        stdout, stderr = process.communicate()
-        pytest.fail(f"Server failed to start:\nSTDOUT: {stdout}\nSTDERR: {stderr}")
+    for attempt in range(max_retries):
+        if process.poll() is not None:
+            stdout, stderr = process.communicate()
+            pytest.fail(f"Server failed to start:\nSTDOUT: {stdout}\nSTDERR: {stderr}")
+        
+        try:
+            # Try to connect to server
+            response = requests.post(
+                TEST_SERVER_URL,
+                json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+                timeout=1
+            )
+            if response.status_code == 200:
+                break
+        except (requests.ConnectionError, requests.Timeout):
+            time.sleep(retry_delay)
+    else:
+        process.terminate()
+        pytest.fail(f"Server failed to start after {max_retries} attempts")
     
     yield TEST_SERVER_URL
     
