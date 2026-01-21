@@ -25,9 +25,10 @@ def upgrade_murl():
     click.echo("Checking for updates...")
     
     try:
-        # Check latest version from GitHub
+        # Check latest version from GitHub with User-Agent header
         response = requests.get(
             "https://api.github.com/repos/turlockmike/murl/releases/latest",
+            headers={'User-Agent': f'murl/{__version__}'},
             timeout=10
         )
         
@@ -49,8 +50,14 @@ def upgrade_murl():
         click.echo(f"Warning: Could not check for updates: {e}")
         click.echo("Proceeding with upgrade anyway...")
     
+    # Confirm before upgrading
+    if not click.confirm("\nDo you want to upgrade now?", default=True):
+        click.echo("Upgrade cancelled.")
+        return
+    
     # Run the install script
     click.echo("\nUpgrading murl...")
+    click.echo("This will run: curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash")
     install_cmd = "curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash"
     
     try:
