@@ -453,6 +453,37 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
     except TimeoutError as e:
         click.echo(f"Error: Request timeout to {url}: {e}", err=True)
         sys.exit(1)
+    except ExceptionGroup as eg:
+        # Handle ExceptionGroup from async tasks (MCP SDK uses anyio TaskGroups)
+        # Extract the first underlying exception for better error messages
+        if eg.exceptions:
+            exc = eg.exceptions[0]
+            exc_type = type(exc).__name__
+            exc_msg = str(exc)
+            
+            # Extract hostname from base_url for better error messages
+            import urllib.parse
+            parsed_url = urllib.parse.urlparse(base_url)
+            hostname = parsed_url.hostname or parsed_url.netloc
+            
+            if exc_type == "ConnectError":
+                # Parse common connection error patterns
+                if "No address associated with hostname" in exc_msg or "Name or service not known" in exc_msg or "nodename nor servname provided" in exc_msg:
+                    click.echo(f"Error: Could not connect to server at {base_url}", err=True)
+                    click.echo(f"       DNS resolution failed for host: {hostname}", err=True)
+                elif "Connection refused" in exc_msg or "All connection attempts failed" in exc_msg:
+                    click.echo(f"Error: Could not connect to server at {base_url}", err=True)
+                    click.echo(f"       Connection refused by host: {hostname}", err=True)
+                else:
+                    click.echo(f"Error: Could not connect to server at {base_url}", err=True)
+                    click.echo(f"       {exc_msg}", err=True)
+            elif exc_type == "TimeoutError" or "Timeout" in exc_msg:
+                click.echo(f"Error: Request timeout to {base_url}", err=True)
+            else:
+                click.echo(f"Error: {exc_msg}", err=True)
+        else:
+            click.echo(f"Error: {eg}", err=True)
+        sys.exit(1)
     except Exception as e:
         # Handle MCP SDK exceptions and other errors
         error_msg = str(e)

@@ -429,7 +429,18 @@ def test_cli_connection_error():
     result = runner.invoke(main, ["http://localhost:9999/tools"])
     
     assert result.exit_code == 1
-    assert "Connection refused" in result.output or "Error:" in result.output
+    assert "Could not connect to server" in result.output
+    assert "Connection refused" in result.output
+
+
+def test_cli_dns_resolution_error():
+    """Test handling DNS resolution error."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["https://invalid-server.test/tools"])
+    
+    assert result.exit_code == 1
+    assert "Could not connect to server" in result.output
+    assert "DNS resolution failed" in result.output
 
 
 def test_cli_invalid_url():
