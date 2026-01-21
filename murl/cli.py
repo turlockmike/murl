@@ -201,7 +201,6 @@ async def make_mcp_request(
     base_url: str,
     method: str,
     params: Dict[str, Any],
-    headers: Dict[str, str],
     verbose: bool
 ) -> Any:
     """Make an MCP request using the official SDK.
@@ -210,7 +209,6 @@ async def make_mcp_request(
         base_url: The base URL of the MCP server
         method: The MCP method to call
         params: The method parameters
-        headers: HTTP headers (currently unused by SDK)
         verbose: Whether to print verbose output
         
     Returns:
@@ -411,11 +409,11 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
         # Map virtual path to method and params
         method, params = map_virtual_path_to_method(virtual_path, data)
         
-        # Parse headers
+        # Parse headers (note: currently unused by MCP SDK but parsed for future compatibility)
         headers = parse_headers(header_flags) if header_flags else {}
         
         # Make the MCP request using SDK (async)
-        result = asyncio.run(make_mcp_request(base_url, method, params, headers, verbose))
+        result = asyncio.run(make_mcp_request(base_url, method, params, verbose))
         
         # Output the result
         click.echo(json.dumps(result, indent=2))
@@ -423,8 +421,23 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
+    except ConnectionError as e:
+        click.echo(f"Error: Failed to connect to {url}: {e}", err=True)
+        sys.exit(1)
+    except TimeoutError as e:
+        click.echo(f"Error: Request timeout to {url}: {e}", err=True)
+        sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        # Handle MCP SDK exceptions and other errors
+        error_msg = str(e)
+        if "ConnectError" in error_msg or "Connection" in error_msg:
+            click.echo(f"Error: Failed to connect to {url}", err=True)
+        elif "Timeout" in error_msg:
+            click.echo(f"Error: Request timeout to {url}", err=True)
+        elif "ValidationError" in error_msg:
+            click.echo(f"Error: Invalid response from server: {e}", err=True)
+        else:
+            click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 
