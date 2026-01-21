@@ -458,3 +458,13 @@ def test_help():
     assert result.exit_code == 0
     assert "MCP Curl" in result.output
     assert "Model Context Protocol" in result.output
+
+
+def test_upgrade_option():
+    """Test --upgrade flag."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--upgrade"])
+    assert result.exit_code == 0
+    assert "Upgrading murl" in result.output
+    # Should show either upgrade complete or requirement already satisfied
+    assert "Upgrade complete" in result.output or "Requirement already satisfied" in result.output
