@@ -19,6 +19,28 @@ cleanup() {
     fi
 }
 
+# Function to detect shell and return appropriate rc file
+get_shell_rc_file() {
+    local rc_file="$HOME/.bashrc"
+    
+    if [[ -n "$SHELL" ]]; then
+        case "$SHELL" in
+            */zsh)
+                rc_file="$HOME/.zshrc"
+                ;;
+            */bash)
+                rc_file="$HOME/.bashrc"
+                ;;
+            *)
+                # Default to bash if unknown
+                rc_file="$HOME/.bashrc"
+                ;;
+        esac
+    fi
+    
+    echo "$rc_file"
+}
+
 # Set trap to cleanup on exit
 trap cleanup EXIT
 
@@ -131,17 +153,7 @@ else
         USER_BIN="$HOME/.local/bin"
         if [[ -d "$USER_BIN" && ":$PATH:" != *":$USER_BIN:"* ]]; then
             # Detect user's shell for appropriate rc file
-            RC_FILE="$HOME/.bashrc"
-            if [[ -n "$SHELL" ]]; then
-                case "$SHELL" in
-                    */zsh)
-                        RC_FILE="$HOME/.zshrc"
-                        ;;
-                    */bash)
-                        RC_FILE="$HOME/.bashrc"
-                        ;;
-                esac
-            fi
+            RC_FILE=$(get_shell_rc_file)
             
             echo -e "${YELLOW}Warning: $USER_BIN is not in your PATH${NC}"
             echo ""
@@ -168,27 +180,12 @@ else
     fi
 fi
 
-# Function to detect shell and provide PATH instructions
+# Function to provide PATH instructions
 provide_path_instructions() {
     local bin_dir="$1"
+    local rc_file
     
-    # Detect user's shell
-    local rc_file="$HOME/.bashrc"
-    
-    if [[ -n "$SHELL" ]]; then
-        case "$SHELL" in
-            */zsh)
-                rc_file="$HOME/.zshrc"
-                ;;
-            */bash)
-                rc_file="$HOME/.bashrc"
-                ;;
-            *)
-                # Default to bash if unknown
-                rc_file="$HOME/.bashrc"
-                ;;
-        esac
-    fi
+    rc_file=$(get_shell_rc_file)
     
     echo -e "${YELLOW}Installation completed, but 'murl' command not found in PATH.${NC}"
     echo ""
