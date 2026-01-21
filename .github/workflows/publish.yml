@@ -115,7 +115,7 @@ jobs:
         # Create formula directory
         mkdir -p homebrew-formula
         
-        # Generate the formula
+        # Generate the formula - simplified version that lets Homebrew handle dependencies
         cat > homebrew-formula/murl.rb << EOF
         class Murl < Formula
           include Language::Python::Virtualenv
@@ -127,16 +127,6 @@ jobs:
           license "MIT"
 
           depends_on "python@3.12"
-
-          resource "click" do
-            url "https://files.pythonhosted.org/packages/source/c/click/click-8.1.7.tar.gz"
-            sha256 "ca9853ad459e787e2192211578cc907e7594e294c7c834310722f2c8264c8d91"
-          end
-
-          resource "requests" do
-            url "https://files.pythonhosted.org/packages/source/r/requests/requests-2.31.0.tar.gz"
-            sha256 "942c5a758f98d5e6fc9f6c6a8e0c63c8b4e6a1d1eb5f13d9c3a6d6a65e4e2c99"
-          end
 
           def install
             virtualenv_install_with_resources
