@@ -215,6 +215,37 @@ def test_map_resources_read_with_additional_params():
     assert params == {"uri": "file:///path/to/file", "format": "json", "encoding": "utf-8"}
 
 
+def test_map_resources_read_empty_path():
+    """Test mapping /resources/ with empty path raises error."""
+    # Empty path after resources should raise ValueError
+    with pytest.raises(ValueError, match="path cannot be empty"):
+        map_virtual_path_to_method("/resources/", {})
+
+
+def test_map_resources_read_with_special_characters():
+    """Test mapping /resources/<path> with special characters."""
+    # Test path with spaces (URL encoded as %20)
+    method, params = map_virtual_path_to_method("/resources/path/to/my%20file.txt", {})
+    assert method == "resources/read"
+    assert params == {"uri": "file:///path/to/my%20file.txt"}
+
+
+def test_map_resources_read_with_multiple_slashes():
+    """Test mapping /resources/<path> with consecutive slashes in path."""
+    # Multiple consecutive slashes should be preserved as part of the path
+    method, params = map_virtual_path_to_method("/resources/path//to///file", {})
+    assert method == "resources/read"
+    assert params == {"uri": "file:///path//to///file"}
+
+
+def test_map_resources_read_relative_path():
+    """Test mapping /resources/<path> with relative path gets leading slash."""
+    # Relative path should get leading slash prepended
+    method, params = map_virtual_path_to_method("/resources/relative/path", {})
+    assert method == "resources/read"
+    assert params == {"uri": "file:///relative/path"}
+
+
 def test_map_prompts_list():
     """Test mapping /prompts to prompts/list."""
     method, params = map_virtual_path_to_method("/prompts", {})

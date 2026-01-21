@@ -145,7 +145,7 @@ Verbose mode prints the JSON-RPC request payload and HTTP headers to stderr, use
 | `/tools`                  | `tools/list`      | `{}`                                      |
 | `/tools/<name>`           | `tools/call`      | `{name: "<name>", arguments: {...}}`      |
 | `/resources`              | `resources/list`  | `{}`                                      |
-| `/resources/<path>`       | `resources/read`  | `{uri: "file://<path>"}`                  |
+| `/resources/<path>`       | `resources/read`  | `{uri: "file:///<path>"}` (three slashes) |
 | `/prompts`                | `prompts/list`    | `{}`                                      |
 | `/prompts/<name>`         | `prompts/get`     | `{name: "<name>", arguments: {...}}`      |
 

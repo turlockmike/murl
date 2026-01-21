@@ -154,6 +154,9 @@ def map_virtual_path_to_method(virtual_path: str, data: Dict[str, Any]) -> Tuple
             # Join all parts after 'resources' to form the file path
             # Prepend '/' to make it an absolute path: /resources/path/to/file -> file:///path/to/file
             file_path = '/'.join(parts[1:])
+            # Handle empty path case (e.g., /resources/ with trailing slash)
+            if not file_path or file_path == '':
+                raise ValueError("Invalid resources path: path cannot be empty after /resources/")
             # Ensure absolute path starts with '/'
             if not file_path.startswith('/'):
                 file_path = '/' + file_path
