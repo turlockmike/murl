@@ -8,6 +8,52 @@ A curl-like CLI tool for interacting with Model Context Protocol (MCP) servers.
 
 MCP (Model Context Protocol) is an open standard developed by Anthropic for AI models to access external data sources, tools, and services. It provides a universal way for large language models (LLMs) to interact with various resources securely and efficiently.
 
+## Quick Start
+
+### Option 1: Try with Public MCP Servers (No Setup Required)
+
+Test murl immediately with public MCP servers:
+
+```bash
+# Install murl
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
+
+# List available tools on the echo server
+murl https://echo.mcp.inevitable.fyi/mcp/tools
+
+# Call the echo tool with a message
+murl https://echo.mcp.inevitable.fyi/mcp/tools/echo -d message="Hello from murl!"
+
+# Try the everything server with multiple tools
+murl https://everything.mcp.inevitable.fyi/mcp/tools
+
+# Get current time from the time server
+murl https://time.mcp.inevitable.fyi/mcp/tools/get_current_time
+```
+
+**Available public test servers:**
+- Echo Server: `https://echo.mcp.inevitable.fyi/mcp` - Simple echo tool for testing
+- Everything Server: `https://everything.mcp.inevitable.fyi/mcp` - Multipurpose server with various capabilities
+- Time Server: `https://time.mcp.inevitable.fyi/mcp` - Time-related tools
+
+### Option 2: Quick Local Setup with mcp-proxy
+
+For testing local or stdio MCP servers:
+
+```bash
+# Install murl and mcp-proxy
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
+pip install mcp-proxy
+
+# Start a simple echo server example
+# (You'll need to have an MCP server to proxy - see the full documentation below)
+mcp-proxy --port 3000 uvx mcp-server-time
+
+# In another terminal, test with murl
+murl http://localhost:3000/tools
+murl http://localhost:3000/tools/get_current_time
+```
+
 ## Installation
 
 ### Quick Install (Recommended)
