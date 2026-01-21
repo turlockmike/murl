@@ -12,8 +12,8 @@ from murl.cli import main
 
 
 # Public MCP server configurations
-MCPLANE_ECHO_URL = "https://echo.mcp.inevitable.fyi/mcp"
-MICROSOFT_LEARN_URL = "https://learn.microsoft.com/api/mcp"
+FETCH_SERVER_URL = "https://remote.mcpservers.org/fetch/mcp"
+DEEPWIKI_URL = "https://mcp.deepwiki.com/mcp"
 
 
 def is_server_reachable(url: str) -> bool:
@@ -33,17 +33,17 @@ def is_server_reachable(url: str) -> bool:
 
 
 @pytest.mark.skipif(
-    not is_server_reachable(MCPLANE_ECHO_URL),
-    reason="MCPlane echo server is not reachable"
+    not is_server_reachable(FETCH_SERVER_URL),
+    reason="Fetch server is not reachable"
 )
-def test_mcplane_echo_server_list_tools():
-    """Test listing tools from the MCPlane echo server.
+def test_fetch_server_list_tools():
+    """Test listing tools from the Fetch server.
     
     This test validates that murl can connect to and interact with
-    the public MCPlane MCP echo server.
+    the public Fetch MCP server.
     """
     runner = CliRunner()
-    result = runner.invoke(main, [f"{MCPLANE_ECHO_URL}/tools"])
+    result = runner.invoke(main, [f"{FETCH_SERVER_URL}/tools"])
     
     # The test should succeed if the server is reachable
     # If it fails, we want to see the output for debugging
@@ -59,16 +59,16 @@ def test_mcplane_echo_server_list_tools():
 
 
 @pytest.mark.skipif(
-    not is_server_reachable(MCPLANE_ECHO_URL),
-    reason="MCPlane echo server is not reachable"
+    not is_server_reachable(FETCH_SERVER_URL),
+    reason="Fetch server is not reachable"
 )
-def test_mcplane_echo_server_connectivity():
-    """Test basic connectivity to the MCPlane echo server.
+def test_fetch_server_connectivity():
+    """Test basic connectivity to the Fetch server.
     
     This is a lightweight test that just verifies the server responds.
     """
     runner = CliRunner()
-    result = runner.invoke(main, [f"{MCPLANE_ECHO_URL}/tools"])
+    result = runner.invoke(main, [f"{FETCH_SERVER_URL}/tools"])
     
     # Check exit code first - connection failures typically result in non-zero codes
     # Exit code 0 means success, exit code 1 may indicate server-side issues but connection worked
@@ -84,17 +84,17 @@ def test_mcplane_echo_server_connectivity():
 
 
 @pytest.mark.skipif(
-    not is_server_reachable(MICROSOFT_LEARN_URL),
-    reason="Microsoft Learn MCP server is not reachable"
+    not is_server_reachable(DEEPWIKI_URL),
+    reason="DeepWiki server is not reachable"
 )
-def test_microsoft_learn_server_list_tools():
-    """Test listing tools from the Microsoft Learn MCP server.
+def test_deepwiki_server_list_tools():
+    """Test listing tools from the DeepWiki server.
     
     This test validates that murl can connect to and interact with
-    the Microsoft Learn MCP server.
+    the DeepWiki MCP server.
     """
     runner = CliRunner()
-    result = runner.invoke(main, [f"{MICROSOFT_LEARN_URL}/tools"])
+    result = runner.invoke(main, [f"{DEEPWIKI_URL}/tools"])
     
     # The test should succeed if the server is reachable
     # If it fails, we want to see the output for debugging

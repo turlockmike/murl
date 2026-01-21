@@ -19,16 +19,16 @@ Test murl immediately with a public MCP server:
 curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
 # Or using pip: pip install mcp-curl
 
-# List available tools on the public echo server
-murl https://echo.mcp.inevitable.fyi/mcp/tools
+# List tools on the public Fetch server
+murl https://remote.mcpservers.org/fetch/mcp/tools
 
-# Call the echo tool
-murl https://echo.mcp.inevitable.fyi/mcp/tools/echo -d message="Hello, World!"
+# Fetch a webpage and convert to markdown
+murl https://remote.mcpservers.org/fetch/mcp/tools/fetch -d url=https://example.com
 ```
 
 **Public demo servers:**
-- MCPlane Echo Server: `https://echo.mcp.inevitable.fyi/mcp` - Simple echo server for testing
-- Microsoft Learn MCP: `https://learn.microsoft.com/api/mcp` - Documentation and learning tools
+- Fetch Server: `https://remote.mcpservers.org/fetch/mcp` - Simple server for fetching web content
+- DeepWiki: `https://mcp.deepwiki.com/mcp` - GitHub repository documentation
 
 ### Quick Local Setup with mcp-proxy
 
