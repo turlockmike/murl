@@ -26,12 +26,6 @@ This will automatically install murl using pip and ensure it's available in your
 pip install murl
 ```
 
-### Using Homebrew
-
-```bash
-brew install turlockmike/tap/murl
-```
-
 ### From Source
 
 ```bash
@@ -215,4 +209,4 @@ MIT License - see LICENSE file for details
 
 ## Publishing
 
-For maintainers: See [PUBLISHING.md](PUBLISHING.md) for instructions on publishing new versions to PyPI and generating Homebrew formulas.
+For maintainers: See [PUBLISHING.md](PUBLISHING.md) for instructions on publishing new versions to PyPI.

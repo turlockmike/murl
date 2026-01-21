@@ -1,4 +1,4 @@
-name: Publish to PyPI and Homebrew
+name: Publish to PyPI
 
 on:
   push:
@@ -75,7 +75,12 @@ jobs:
         body: |
           ## Installation
           
-          Install via pip:
+          Quick install:
+          ```bash
+          curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
+          ```
+          
+          Or via pip:
           ```bash
           pip install murl==${{ steps.get_version.outputs.VERSION }}
           ```
@@ -86,8 +91,6 @@ jobs:
         prerelease: false
         generate_release_notes: true
 
-  update-homebrew:
-    runs-on: ubuntu-latest
     needs: publish-pypi
     permissions:
       contents: write

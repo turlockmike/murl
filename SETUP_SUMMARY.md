@@ -15,17 +15,10 @@ This document provides a quick overview of the publishing setup that has been im
 
 ### 2. GitHub Releases
 - Automatically creates GitHub releases when tags are pushed
-- Includes installation instructions
+- Includes installation instructions (curl and pip)
 - Generates release notes from commits
 
-### 3. Homebrew Formula Generation & Publishing
-- Automatically generates a Homebrew formula file
-- Downloads package from PyPI and calculates SHA256
-- **Publishes to Homebrew tap** (`turlockmike/homebrew-tap`) if token is configured
-- Falls back to artifact upload if tap publishing is not configured
-- Users can install with: `brew install turlockmike/tap/murl`
-
-### 4. Curl Install Script
+### 3. Curl Install Script
 - **Install Script**: `install.sh` 
 - One-liner installation: `curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash`
 - Features:
@@ -35,9 +28,9 @@ This document provides a quick overview of the publishing setup that has been im
   - Provides PATH configuration guidance
   - Verifies installation success
 
-### 5. Documentation
+### 4. Documentation
 - **PUBLISHING.md**: Complete guide for maintainers on how to publish new versions
-- **README.md**: Updated with all installation methods including curl install
+- **README.md**: Updated with curl install and pip installation methods
 - **SETUP_SUMMARY.md**: Quick reference with setup instructions
 
 ## 🔐 Required Setup (One-Time)
@@ -102,42 +95,10 @@ git push origin v0.2.0
 
 ### Step 4: Watch the Workflow
 1. Go to https://github.com/turlockmike/murl/actions
-2. Watch the "Publish to PyPI and Homebrew" workflow run
+2. Watch the "Publish to PyPI" workflow run
 3. Within a few minutes:
    - Package will be published to PyPI
-   - GitHub release will be created
-   - Homebrew formula will be available as an artifact
-
-## 🍺 Homebrew Setup (Optional)
-
-The workflow can automatically publish to your Homebrew tap. To enable this:
-
-### Step 1: Create Homebrew Tap Repository
-```bash
-gh repo create turlockmike/homebrew-tap --public
-```
-
-Or manually create a repository named `homebrew-tap` under your GitHub account.
-
-### Step 2: Generate GitHub Token
-1. Go to https://github.com/settings/tokens/new
-2. Select scopes: `repo` (Full control of private repositories)
-3. Generate token and copy it
-
-### Step 3: Add Token to Repository
-1. Go to your murl repository settings
-2. Navigate to Secrets and variables > Actions
-3. Add a new repository secret:
-   - **Name**: `HOMEBREW_TAP_TOKEN`
-   - **Value**: (paste your GitHub token)
-
-### Step 4: Done!
-Now when you publish a new version, the workflow will automatically:
-- Generate the Homebrew formula
-- Push it to `turlockmike/homebrew-tap`
-- Users can install with: `brew install turlockmike/tap/murl`
-
-If the token is not configured, the formula will still be generated and saved as a workflow artifact for manual deployment.
+   - GitHub release will be created with installation instructions
 
 ## 🧪 Testing the Workflow
 
@@ -167,8 +128,8 @@ If the workflow fails with "Version in pyproject.toml does not match tag version
 - **With API Token**: Verify the `PYPI_API_TOKEN` secret is set correctly
 
 ### Package Not Found on PyPI
-- The workflow waits 2 minutes before generating the Homebrew formula
-- If you still have issues, check https://pypi.org/project/murl/ to confirm it's published
+- Check https://pypi.org/project/murl/ to confirm it's published
+- Wait a few minutes for the package to be indexed
 
 ## 📝 Files Changed
 
@@ -176,15 +137,15 @@ If the workflow fails with "Version in pyproject.toml does not match tag version
 |------|---------|
 | `.github/workflows/publish.yml` | Publishing workflow |
 | `PUBLISHING.md` | Detailed publishing guide |
-| `README.md` | Updated with Homebrew info |
+| `README.md` | Updated with installation methods |
 | `pyproject.toml` | Fixed license classifier |
+| `install.sh` | Curl install script |
 
 ## ✨ Next Steps
 
 1. **Set up PyPI Trusted Publishing** (see above)
 2. **Test the workflow** by publishing version 0.1.0 or 0.2.0
-3. **Consider creating a Homebrew tap** if you want Homebrew support
-4. **Update PUBLISHING.md** with any project-specific release procedures
+3. **Update PUBLISHING.md** with any project-specific release procedures
 
 ## 🆘 Need Help?
 
@@ -192,7 +153,6 @@ Refer to:
 - `PUBLISHING.md` for detailed publishing instructions
 - GitHub Actions logs for workflow troubleshooting
 - PyPI documentation: https://packaging.python.org/
-- Homebrew documentation: https://docs.brew.sh/
 
 ---
 

@@ -1,6 +1,6 @@
 # Publishing Guide
 
-This document describes how to publish new versions of `murl` to PyPI and generate Homebrew formulas.
+This document describes how to publish new versions of `murl` to PyPI.
 
 ## Prerequisites
 
@@ -26,36 +26,6 @@ If you prefer to use an API token instead of trusted publishing:
    ```yaml
    password: ${{ secrets.PYPI_API_TOKEN }}
    ```
-
-### Homebrew Publishing (Optional)
-
-The workflow automatically generates a Homebrew formula and can publish it to a tap repository.
-
-#### Setup Homebrew Tap Publishing
-
-1. Create a tap repository: `turlockmike/homebrew-tap`
-   ```bash
-   gh repo create turlockmike/homebrew-tap --public
-   ```
-
-2. Generate a GitHub Personal Access Token:
-   - Go to https://github.com/settings/tokens/new
-   - Select scopes: `repo` (Full control of private repositories)
-   - Generate token
-
-3. Add the token as a repository secret:
-   - Go to repository Settings → Secrets and variables → Actions
-   - Add new repository secret:
-     - **Name**: `HOMEBREW_TAP_TOKEN`
-     - **Value**: (paste your token)
-
-4. The workflow will automatically:
-   - Generate the formula from the PyPI package
-   - Clone the tap repository
-   - Commit and push the updated formula
-   - Users can install with: `brew install turlockmike/tap/murl`
-
-If the token is not set, the workflow will still generate the formula as an artifact for manual deployment.
 
 ## Publishing a New Version
 
@@ -94,21 +64,12 @@ This will trigger the publishing workflow automatically.
 ### 4. Monitor Workflow
 
 1. Go to https://github.com/turlockmike/murl/actions
-2. Watch the "Publish to PyPI and Homebrew" workflow
+2. Watch the "Publish to PyPI" workflow
 3. The workflow will:
    - Verify the version matches the tag
    - Build the Python package
    - Publish to PyPI
    - Create a GitHub Release
-   - Generate a Homebrew formula
-
-### 5. Download Homebrew Formula
-
-After the workflow completes:
-
-1. Go to the workflow run page
-2. Download the "homebrew-formula" artifact
-3. Use it to update your Homebrew tap (if you have one)
 
 ## Troubleshooting
 
@@ -134,11 +95,10 @@ Make sure you updated the version in `pyproject.toml` before creating the tag.
 
 ### Package Not Available on PyPI
 
-The workflow waits 2 minutes before generating the Homebrew formula to ensure the package is available. If you still encounter issues:
+If you encounter issues:
 
 1. Check PyPI: https://pypi.org/project/murl/
 2. Manually verify the package is published
-3. Re-run the "update-homebrew" job if needed
 
 ## Version Numbering
 
@@ -172,18 +132,4 @@ twine check dist/*
 
 # Upload to PyPI
 twine upload dist/*
-```
-
-### Homebrew Formula
-
-```bash
-# Download source from PyPI
-VERSION=0.2.0
-curl -L -o murl-${VERSION}.tar.gz \
-  https://files.pythonhosted.org/packages/source/m/murl/murl-${VERSION}.tar.gz
-
-# Calculate SHA256
-sha256sum murl-${VERSION}.tar.gz
-
-# Update the formula with the new version and SHA256
 ```
