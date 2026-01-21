@@ -217,27 +217,32 @@ else
         # For user installation, try to get the user base bin directory
         PYTHON_SCRIPTS_DIR=$($PYTHON_CMD -c "import site; import os; print(os.path.join(site.USER_BASE, 'bin'))" 2>/dev/null)
         
-        # If that doesn't exist or is empty, try common locations
-        if [[ -z "$PYTHON_SCRIPTS_DIR" || ! -d "$PYTHON_SCRIPTS_DIR" ]]; then
+        # Ensure the derived directory exists and contains the murl executable
+        if [[ -z "$PYTHON_SCRIPTS_DIR" || ! -d "$PYTHON_SCRIPTS_DIR" || ! -x "$PYTHON_SCRIPTS_DIR/murl" ]]; then
+            PYTHON_SCRIPTS_DIR=""
+        fi
+        
+        # If that doesn't exist or doesn't contain murl, try common locations
+        if [[ -z "$PYTHON_SCRIPTS_DIR" ]]; then
             # Check common user bin locations
-            if [[ -d "$HOME/.local/bin" ]]; then
+            if [[ -d "$HOME/.local/bin" && -x "$HOME/.local/bin/murl" ]]; then
                 PYTHON_SCRIPTS_DIR="$HOME/.local/bin"
-            elif [[ -d "$HOME/Library/Python/$PYTHON_VERSION/bin" ]]; then
+            elif [[ -d "$HOME/Library/Python/$PYTHON_VERSION/bin" && -x "$HOME/Library/Python/$PYTHON_VERSION/bin/murl" ]]; then
                 PYTHON_SCRIPTS_DIR="$HOME/Library/Python/$PYTHON_VERSION/bin"
             fi
         fi
     else
         # For system installation, check common system bin directories
         for dir in /usr/local/bin /usr/bin; do
-            if [[ -d "$dir" ]]; then
+            if [[ -d "$dir" && -x "$dir/murl" ]]; then
                 PYTHON_SCRIPTS_DIR="$dir"
                 break
             fi
         done
     fi
     
-    # If we found a scripts directory, provide instructions
-    if [[ -n "$PYTHON_SCRIPTS_DIR" ]]; then
+    # If we found a scripts directory that contains murl, provide instructions
+    if [[ -n "$PYTHON_SCRIPTS_DIR" && -x "$PYTHON_SCRIPTS_DIR/murl" ]]; then
         provide_path_instructions "$PYTHON_SCRIPTS_DIR"
     else
         # Fallback to generic message
