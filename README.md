@@ -338,7 +338,7 @@ For more information about MCP transport protocols, see the [official MCP docume
 
 - Python 3.10 or higher
 - `click` - For CLI argument parsing
-- `requests` - For HTTP requests
+- `mcp` - Model Context Protocol SDK
 
 ## License
 
