@@ -325,12 +325,19 @@ def run_upgrade(ctx, param, value):
     click.echo("Upgrading murl...")
     
     # Use pip to upgrade mcp-curl package
-    result = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--upgrade", "mcp-curl"],
-        capture_output=True,
-        text=True,
-        check=False
-    )
+    # Set a reasonable timeout to prevent hanging
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "mcp-curl"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=300  # 5 minute timeout
+        )
+    except subprocess.TimeoutExpired:
+        click.echo("Error: Upgrade timed out after 5 minutes.", err=True)
+        click.echo("Please try upgrading manually with: pip install --upgrade mcp-curl", err=True)
+        ctx.exit(1)
     
     if result.returncode == 0:
         click.echo(result.stdout)
