@@ -197,6 +197,94 @@ pytest --cov=murl --cov-report=html
 5. **Sending an HTTP POST request** to the base endpoint with the JSON-RPC payload
 6. **Extracting the result** from the JSON-RPC response and printing it as JSON
 
+## Using murl with mcp-proxy
+
+Many MCP servers are implemented as stdio (standard input/output) programs that communicate via JSON-RPC over stdin/stdout. To use `murl` with these servers, you need to convert them to HTTP endpoints. The [mcp-proxy](https://github.com/sparfenyuk/mcp-proxy) tool bridges stdio MCP servers to HTTP transport, making them accessible via `murl`.
+
+### Installing mcp-proxy
+
+```bash
+pip install mcp-proxy
+```
+
+### Converting a stdio MCP Server to HTTP
+
+If you have a stdio MCP server (e.g., a Python script, Node.js app, or any program that communicates via stdin/stdout), you can expose it as an HTTP server using mcp-proxy:
+
+```bash
+# Start mcp-proxy to expose a stdio MCP server on HTTP port 3000
+mcp-proxy --sse-port 3000 your-stdio-mcp-server
+
+# Or for a Node.js MCP server
+mcp-proxy --sse-port 3000 node path/to/mcp-server.js
+
+# Or for a Python MCP server
+mcp-proxy --sse-port 3000 python path/to/mcp_server.py
+```
+
+This starts an HTTP server on `http://localhost:3000` that forwards requests to your stdio MCP server.
+
+### Using murl with the Proxied Server
+
+Once mcp-proxy is running, you can use `murl` to interact with your stdio MCP server via HTTP:
+
+```bash
+# List available tools from the proxied server
+murl http://localhost:3000/tools
+
+# Call a tool with arguments
+murl http://localhost:3000/tools/my_tool -d param1=value1 -d param2=value2
+
+# List resources
+murl http://localhost:3000/resources
+
+# Get a prompt
+murl http://localhost:3000/prompts/my_prompt -d arg1=value
+```
+
+### Example: Complete Workflow
+
+Here's a complete example of setting up and using a stdio MCP server with murl:
+
+1. **Start your stdio MCP server via mcp-proxy:**
+   ```bash
+   mcp-proxy --sse-port 3000 python my_mcp_server.py
+   ```
+
+2. **In another terminal, use murl to interact with it:**
+   ```bash
+   # Discover available tools
+   murl http://localhost:3000/tools | jq '.[] | {name, description}'
+   
+   # Call a specific tool
+   murl http://localhost:3000/tools/process_data -d input="Hello World"
+   
+   # List available resources
+   murl http://localhost:3000/resources | jq .
+   ```
+
+### Authentication with mcp-proxy
+
+If your stdio MCP server requires authentication, mcp-proxy can handle it:
+
+```bash
+# Set up authentication via environment variable
+export API_ACCESS_TOKEN=your-secret-token
+mcp-proxy --sse-port 3000 your-mcp-server
+
+# Then use murl with the auth header
+murl http://localhost:3000/tools -H "Authorization: Bearer your-secret-token"
+```
+
+### Benefits of Using mcp-proxy with murl
+
+- **Universal Access**: Convert any stdio MCP server to HTTP without modifying the server code
+- **Testing**: Easily test MCP servers during development using familiar curl-like syntax
+- **Integration**: Enable MCP servers to be accessed by HTTP-based clients and tools
+- **Remote Access**: Expose local MCP servers for remote access (with appropriate security measures)
+
+For more information about mcp-proxy, visit the [official repository](https://github.com/sparfenyuk/mcp-proxy).
+
 ## Requirements
 
 - Python 3.10 or higher
