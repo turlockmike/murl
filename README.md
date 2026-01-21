@@ -42,7 +42,7 @@ For testing local or stdio MCP servers:
 
 ```bash
 # Install murl and mcp-proxy
-curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
 pip install mcp-proxy
 
 # Start a simple time server example
