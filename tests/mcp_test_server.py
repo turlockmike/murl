@@ -22,10 +22,25 @@ class MCPJSONRPCHandler(BaseHTTPRequestHandler):
             
             method = request.get('method')
             params = request.get('params', {})
-            request_id = request.get('id', 1)
+            request_id = request.get('id')
+            
+            # Handle notifications (no response expected)
+            if request_id is None:
+                if method == 'notifications/initialized':
+                    # Just acknowledge the notification
+                    self.send_response(202)
+                    self.end_headers()
+                    return
+                else:
+                    # Unknown notification - just acknowledge
+                    self.send_response(202)
+                    self.end_headers()
+                    return
             
             # Route to appropriate handler
-            if method == 'tools/list':
+            if method == 'initialize':
+                result = self.handle_initialize(params)
+            elif method == 'tools/list':
                 result = self.handle_tools_list()
             elif method == 'tools/call':
                 result = self.handle_tools_call(params)
@@ -73,6 +88,21 @@ class MCPJSONRPCHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(response).encode('utf-8'))
+    
+    def handle_initialize(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle initialize request per MCP spec."""
+        return {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "tools": {},
+                "resources": {},
+                "prompts": {}
+            },
+            "serverInfo": {
+                "name": "mcp-test-server",
+                "version": "0.1.0"
+            }
+        }
     
     def handle_tools_list(self) -> List[Dict[str, Any]]:
         """Handle tools/list request."""
