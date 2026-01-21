@@ -154,7 +154,8 @@ def map_virtual_path_to_method(virtual_path: str, data: Dict[str, Any]) -> Tuple
             # Join all parts after 'resources' to form the URI
             # This handles URIs like file:///path/to/file or http://example.com/resource
             uri = '/'.join(parts[1:])
-            return 'resources/read', {'uri': uri}
+            # Merge with any additional data parameters passed via -d flags
+            return 'resources/read', {'uri': uri, **data}
     
     elif category == 'prompts':
         if len(parts) == 1:
