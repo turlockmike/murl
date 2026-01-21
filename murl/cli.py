@@ -1,23 +1,17 @@
 """CLI entry point for murl."""
 
+import asyncio
 import json
 import os
 import re
 import subprocess
 import sys
-import time
 from typing import Dict, Any, Tuple, Optional
 
 import click
-import requests
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
 from murl import __version__
-
-
-# Constants for session-based SSE
-SSE_CONNECTION_TIMEOUT = 30  # Timeout for establishing SSE connection
-SSE_POST_TIMEOUT = 10  # Timeout for POST request to session endpoint
-SSE_READ_TIMEOUT = 10  # Timeout for reading response from SSE stream
-SSE_LOG_TRUNCATE_LENGTH = 100  # Max characters to show in verbose SSE logs
 
 
 def parse_url(full_url: str) -> Tuple[str, str]:
@@ -182,24 +176,6 @@ def map_virtual_path_to_method(virtual_path: str, data: Dict[str, Any]) -> Tuple
         raise ValueError(f"Invalid MCP category: {category}")
 
 
-def create_jsonrpc_request(method: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    """Create a JSON-RPC 2.0 request envelope.
-    
-    Args:
-        method: The MCP method name
-        params: The parameters object
-        
-    Returns:
-        JSON-RPC request dictionary
-    """
-    return {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': method,
-        'params': params
-    }
-
-
 def parse_headers(header_flags: Tuple[str, ...]) -> Dict[str, str]:
     """Parse -H/--header flags into a dictionary.
     
@@ -221,272 +197,103 @@ def parse_headers(header_flags: Tuple[str, ...]) -> Dict[str, str]:
     return headers
 
 
-def perform_initialization_handshake(
-    session_endpoint: str,
-    lines_iter,
-    verbose: bool
-) -> bool:
-    """Perform MCP initialization handshake.
-    
-    This sends the initialize request and notifications/initialized as per
-    MCP specification before any other requests can be made.
-    
-    Args:
-        session_endpoint: The session endpoint to send requests to
-        lines_iter: Iterator for reading SSE stream responses
-        verbose: Whether to print verbose output
-        
-    Returns:
-        True if initialization successful, False otherwise
-    """
-    try:
-        # Create initialize request per MCP spec
-        init_request = {
-            "jsonrpc": "2.0",
-            "id": 0,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {
-                    "name": "murl",
-                    "version": __version__
-                }
-            }
-        }
-        
-        if verbose:
-            click.echo("=== Performing MCP Initialization ===", err=True)
-            click.echo(json.dumps(init_request, indent=2), err=True)
-        
-        # Send initialize request
-        init_response = requests.post(
-            session_endpoint,
-            json=init_request,
-            headers={'Content-Type': 'application/json'},
-            timeout=SSE_POST_TIMEOUT
-        )
-        
-        if init_response.status_code not in (200, 202):
-            if verbose:
-                click.echo(f"Initialize request failed: {init_response.status_code}", err=True)
-            return False
-        
-        # Read initialize response from SSE stream
-        start_time = time.time()
-        init_response_data = None
-        
-        for line in lines_iter:
-            if time.time() - start_time > SSE_READ_TIMEOUT:
-                if verbose:
-                    click.echo("Timeout waiting for initialize response", err=True)
-                return False
-            
-            if not line:
-                continue
-            
-            if line.startswith('data: '):
-                data_str = line[6:]
-                try:
-                    message = json.loads(data_str)
-                    if isinstance(message, dict) and message.get('id') == 0:
-                        init_response_data = message
-                        if verbose:
-                            click.echo("Received initialize response", err=True)
-                        break
-                except json.JSONDecodeError:
-                    continue
-        
-        if not init_response_data:
-            if verbose:
-                click.echo("No initialize response received", err=True)
-            return False
-        
-        # Check for error in initialize response
-        if 'error' in init_response_data:
-            if verbose:
-                click.echo(f"Initialize error: {init_response_data['error']}", err=True)
-            return False
-        
-        # Send initialized notification (no response expected)
-        initialized_notification = {
-            "jsonrpc": "2.0",
-            "method": "notifications/initialized",
-            "params": {}
-        }
-        
-        if verbose:
-            click.echo("Sending initialized notification", err=True)
-        
-        notif_response = requests.post(
-            session_endpoint,
-            json=initialized_notification,
-            headers={'Content-Type': 'application/json'},
-            timeout=SSE_POST_TIMEOUT
-        )
-        
-        if notif_response.status_code not in (200, 202):
-            if verbose:
-                click.echo(f"Initialized notification failed: {notif_response.status_code}", err=True)
-            return False
-        
-        if verbose:
-            click.echo("MCP initialization complete", err=True)
-        
-        return True
-        
-    except Exception as e:
-        if verbose:
-            click.echo(f"Initialization error: {e}", err=True)
-        return False
-
-
-def try_session_based_sse_request(
+async def make_mcp_request(
     base_url: str,
-    jsonrpc_request: Dict[str, Any],
+    method: str,
+    params: Dict[str, Any],
     headers: Dict[str, str],
     verbose: bool
-) -> Optional[Dict[str, Any]]:
-    """Try to make a session-based SSE request (for mcp-proxy compatibility).
-    
-    This handles the mcp-proxy session-based SSE workflow:
-    1. Connect to SSE endpoint to get session ID
-    2. Perform MCP initialization handshake
-    3. POST request to session-specific endpoint
-    4. Read response from SSE stream
+) -> Any:
+    """Make an MCP request using the official SDK.
     
     Args:
-        base_url: The base URL of the server
-        jsonrpc_request: The JSON-RPC request to send
-        headers: HTTP headers
+        base_url: The base URL of the MCP server
+        method: The MCP method to call
+        params: The method parameters
+        headers: Custom HTTP headers to include in requests
         verbose: Whether to print verbose output
         
     Returns:
-        The response data if successful, None if session-based SSE not supported
+        The result from the MCP server (as JSON-serializable data)
+        
+    Raises:
+        Exception: If the request fails
     """
+    # Validate required parameters before making connection
+    if method == 'tools/call':
+        if params.get('name') is None:
+            raise ValueError("Missing required 'name' parameter for tools/call method")
+    elif method == 'resources/read':
+        if params.get('uri') is None:
+            raise ValueError("Missing required 'uri' parameter for resources/read method")
+    elif method == 'prompts/get':
+        if params.get('name') is None:
+            raise ValueError("Missing required 'name' parameter for prompts/get request")
+    
+    if verbose:
+        click.echo("=== MCP Request ===", err=True)
+        click.echo(f"Method: {method}", err=True)
+        click.echo(f"Params: {json.dumps(params, indent=2)}", err=True)
+        click.echo(f"URL: {base_url}", err=True)
+        if headers:
+            click.echo(f"Headers: {json.dumps(headers, indent=2)}", err=True)
+        click.echo("", err=True)
+    
+    # Create httpx client with custom headers if provided
+    import httpx
+    http_client = None
+    if headers:
+        http_client = httpx.AsyncClient(headers=headers)
+    
     try:
-        # Try to connect to SSE endpoint to establish session
-        sse_url = f"{base_url}/sse"
-        
-        if verbose:
-            click.echo("=== Attempting Session-Based SSE ===", err=True)
-            click.echo(f"Connecting to: {sse_url}", err=True)
-        
-        # Connect to SSE endpoint with streaming - keep connection alive
-        sse_response = requests.get(
-            sse_url,
-            headers={'Accept': 'text/event-stream'},
-            stream=True,
-            timeout=SSE_CONNECTION_TIMEOUT
-        )
-        
-        if sse_response.status_code != 200:
-            return None
-        
-        # Parse SSE stream to get session endpoint
-        session_endpoint = None
-        lines_iter = sse_response.iter_lines(decode_unicode=True)
-        
-        # Read initial lines to get session endpoint
-        for line in lines_iter:
-            if not line:
-                continue
-            
-            # Look for event: endpoint line followed by data: line
-            if line.startswith('event: endpoint'):
-                continue
-            elif line.startswith('data: '):
-                endpoint_path = line[6:].strip()  # Remove 'data: ' prefix
-                if endpoint_path.startswith('/'):
-                    session_endpoint = f"{base_url}{endpoint_path}"
-                    break
-        
-        if not session_endpoint:
-            if verbose:
-                click.echo("No session endpoint found in SSE stream", err=True)
-            sse_response.close()
-            return None
-        
-        if verbose:
-            click.echo(f"Got session endpoint: {session_endpoint}", err=True)
-        
-        # Perform MCP initialization handshake
-        if not perform_initialization_handshake(session_endpoint, lines_iter, verbose):
-            if verbose:
-                click.echo("MCP initialization failed", err=True)
-            sse_response.close()
-            return None
-        
-        if verbose:
-            click.echo("Sending request to session endpoint...", err=True)
-        
-        # Now POST the actual request to the session endpoint
-        post_response = requests.post(
-            session_endpoint,
-            json=jsonrpc_request,
-            headers={'Content-Type': 'application/json'},
-            timeout=SSE_POST_TIMEOUT
-        )
-        
-        # 202 Accepted means response will come via SSE stream
-        # 200 OK might mean immediate response
-        if post_response.status_code not in (200, 202):
-            if verbose:
-                click.echo(f"Session POST failed: {post_response.status_code}", err=True)
-            sse_response.close()
-            return None
-        
-        # Continue reading from the SSE stream for the response
-        request_id = jsonrpc_request.get('id')
-        response_data = None
-        
-        # Set a timeout for reading the response
-        start_time = time.time()
-        
-        if verbose:
-            click.echo("Reading response from SSE stream...", err=True)
-        
-        # Continue reading from the same iterator
-        for line in lines_iter:
-            if time.time() - start_time > SSE_READ_TIMEOUT:
+        async with streamable_http_client(base_url, http_client=http_client) as (read, write, get_session_id):
+            async with ClientSession(read, write) as session:
+                # Initialize the session
+                init_result = await session.initialize()
+                
                 if verbose:
-                    click.echo("Timeout waiting for response in SSE stream", err=True)
-                break
-            
-            if not line:
-                continue
-            
-            if verbose and line:
-                # Truncate long lines for readability
-                display_line = line[:SSE_LOG_TRUNCATE_LENGTH] if len(line) > SSE_LOG_TRUNCATE_LENGTH else line
-                click.echo(f"SSE line: {display_line}", err=True)
-            
-            if line.startswith('data: '):
-                data_str = line[6:]  # Remove 'data: ' prefix
-                try:
-                    message = json.loads(data_str)
-                    # Look for JSON-RPC response matching our request ID
-                    if isinstance(message, dict) and message.get('id') == request_id:
-                        response_data = message
-                        if verbose:
-                            click.echo("Found matching response!", err=True)
-                        break
-                except json.JSONDecodeError:
-                    continue
-        
-        # Close the SSE connection
-        sse_response.close()
-        
-        return response_data
-        
-    except requests.exceptions.RequestException:
-        if verbose:
-            click.echo("Session-based SSE connection failed", err=True)
-        return None
-    except Exception as e:
-        if verbose:
-            click.echo(f"Session-based SSE error: {e}", err=True)
-        return None
+                    click.echo("=== MCP Initialization ===", err=True)
+                    click.echo(f"Protocol Version: {init_result.protocolVersion}", err=True)
+                    click.echo(f"Server: {init_result.serverInfo.name} {init_result.serverInfo.version}", err=True)
+                    click.echo("", err=True)
+                
+                # Route to appropriate SDK method
+                if method == 'tools/list':
+                    result = await session.list_tools()
+                    # Convert pydantic models to dict
+                    return [tool.model_dump(mode='json', exclude_none=True) for tool in result.tools]
+                elif method == 'tools/call':
+                    tool_name = params.get('name')
+                    arguments = params.get('arguments', {})
+                    result = await session.call_tool(tool_name, arguments)
+                    # Convert content to dict
+                    return [content.model_dump(mode='json', exclude_none=True) for content in result.content]
+                elif method == 'resources/list':
+                    result = await session.list_resources()
+                    # Convert resources to dict
+                    return [resource.model_dump(mode='json', exclude_none=True) for resource in result.resources]
+                elif method == 'resources/read':
+                    uri = params.get('uri')
+                    result = await session.read_resource(uri)
+                    # Convert contents to dict
+                    return [content.model_dump(mode='json', exclude_none=True) for content in result.contents]
+                elif method == 'prompts/list':
+                    result = await session.list_prompts()
+                    # Convert prompts to dict
+                    return [prompt.model_dump(mode='json', exclude_none=True) for prompt in result.prompts]
+                elif method == 'prompts/get':
+                    prompt_name = params.get('name')
+                    arguments = params.get('arguments', {})
+                    result = await session.get_prompt(prompt_name, arguments)
+                    # Convert messages to dict
+                    return [message.model_dump(mode='json', exclude_none=True) for message in result.messages]
+                else:
+                    raise ValueError(f"Unsupported method: {method}")
+    finally:
+        # Clean up the http_client if we created one
+        if http_client is not None:
+            await http_client.aclose()
+
 
 
 def print_version(ctx, param, value):
@@ -628,123 +435,35 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
         # Map virtual path to method and params
         method, params = map_virtual_path_to_method(virtual_path, data)
         
-        # Create JSON-RPC request
-        jsonrpc_request = create_jsonrpc_request(method, params)
-        
-        # Parse headers
+        # Parse headers for authentication and custom HTTP headers
         headers = parse_headers(header_flags) if header_flags else {}
-        headers['Content-Type'] = 'application/json'
-        # Support Streamable HTTP transport (MCP protocol)
-        # This allows murl to work with both regular HTTP JSON-RPC servers
-        # and MCP servers using Streamable HTTP transport (like mcp-proxy)
-        headers['Accept'] = 'application/json, text/event-stream'
         
-        # Verbose output
-        if verbose:
-            click.echo("=== JSON-RPC Request ===", err=True)
-            click.echo(json.dumps(jsonrpc_request, indent=2), err=True)
-            click.echo("\n=== HTTP Headers ===", err=True)
-            click.echo(json.dumps(headers, indent=2), err=True)
-            click.echo("\n=== Sending to ===", err=True)
-            click.echo(base_url, err=True)
-            click.echo("", err=True)
-        
-        # Try session-based SSE first (for mcp-proxy compatibility)
-        response_data = try_session_based_sse_request(
-            base_url, jsonrpc_request, headers, verbose
-        )
-        
-        if response_data is not None:
-            # Successfully got response via session-based SSE
-            if verbose:
-                click.echo("=== Response via Session-Based SSE ===", err=True)
-                click.echo("", err=True)
-        else:
-            # Fall back to regular HTTP POST request
-            if verbose:
-                click.echo("=== Using Regular HTTP POST ===", err=True)
-            
-            response = requests.post(
-                base_url,
-                json=jsonrpc_request,
-                headers=headers,
-                timeout=30
-            )
-            
-            # Verbose response headers
-            if verbose:
-                click.echo("=== HTTP Response Headers ===", err=True)
-                click.echo(json.dumps(dict(response.headers), indent=2), err=True)
-                click.echo("", err=True)
-            
-            # Parse response
-            content_type = response.headers.get('Content-Type', '')
-            request_id = jsonrpc_request.get('id')
-            
-            # Handle SSE response (Streamable HTTP transport)
-            if 'text/event-stream' in content_type:
-                # Parse SSE stream and extract JSON-RPC messages
-                response_data = None
-                for line in response.text.split('\n'):
-                    line = line.strip()
-                    if line.startswith('data: '):
-                        data_str = line[6:]  # Remove 'data: ' prefix
-                        try:
-                            message = json.loads(data_str)
-                            # Look for JSON-RPC response matching our request ID
-                            if isinstance(message, dict) and message.get('id') == request_id:
-                                # Found a matching response, use it
-                                response_data = message
-                                break  # Use first matching response
-                        except json.JSONDecodeError:
-                            continue
-                
-                if response_data is None:
-                    click.echo(f"Error: No valid JSON-RPC response in SSE stream", err=True)
-                    click.echo(f"Response: {response.text}", err=True)
-                    sys.exit(1)
-            else:
-                # Regular JSON response
-                try:
-                    response_data = response.json()
-                except json.JSONDecodeError:
-                    click.echo(f"Error: Invalid JSON response from server", err=True)
-                    click.echo(f"Status Code: {response.status_code}", err=True)
-                    click.echo(f"Response: {response.text}", err=True)
-                    sys.exit(1)
-        
-        # Check for JSON-RPC error
-        if 'error' in response_data:
-            error = response_data['error']
-            click.echo(f"MCP Error: {error.get('message', 'Unknown error')}", err=True)
-            if 'code' in error:
-                click.echo(f"Error Code: {error['code']}", err=True)
-            if 'data' in error:
-                click.echo(f"Error Data: {json.dumps(error['data'])}", err=True)
-            sys.exit(1)
+        # Make the MCP request using SDK (async)
+        result = asyncio.run(make_mcp_request(base_url, method, params, headers, verbose))
         
         # Output the result
-        if 'result' in response_data:
-            # Pretty print JSON to stdout
-            click.echo(json.dumps(response_data['result'], indent=2))
-        else:
-            # No result field, print entire response
-            click.echo(json.dumps(response_data, indent=2))
+        click.echo(json.dumps(result, indent=2))
         
-    except requests.exceptions.ConnectionError:
-        click.echo(f"Error: Connection refused to {url}", err=True)
-        sys.exit(1)
-    except requests.exceptions.Timeout:
-        click.echo(f"Error: Request timeout to {url}", err=True)
-        sys.exit(1)
-    except requests.exceptions.RequestException as e:
-        click.echo(f"Error: HTTP request failed: {e}", err=True)
-        sys.exit(1)
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
+    except ConnectionError as e:
+        click.echo(f"Error: Failed to connect to {url}: {e}", err=True)
+        sys.exit(1)
+    except TimeoutError as e:
+        click.echo(f"Error: Request timeout to {url}: {e}", err=True)
+        sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        # Handle MCP SDK exceptions and other errors
+        error_msg = str(e)
+        if "ConnectError" in error_msg or "Connection" in error_msg:
+            click.echo(f"Error: Failed to connect to {url}", err=True)
+        elif "Timeout" in error_msg:
+            click.echo(f"Error: Request timeout to {url}", err=True)
+        elif "ValidationError" in error_msg:
+            click.echo(f"Error: Invalid response from server: {e}", err=True)
+        else:
+            click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 

@@ -14,7 +14,6 @@ from murl.cli import (
     parse_data_value,
     parse_data_flags,
     map_virtual_path_to_method,
-    create_jsonrpc_request,
     parse_headers,
 )
 from murl import __version__
@@ -261,17 +260,6 @@ def test_map_prompts_get():
     assert params == {"name": "greeting", "arguments": {"variable": "value"}}
 
 
-def test_create_jsonrpc_request():
-    """Test creating JSON-RPC request."""
-    request = create_jsonrpc_request("tools/list", {})
-    assert request == {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "tools/list",
-        "params": {}
-    }
-
-
 def test_parse_headers():
     """Test parsing header flags."""
     headers = parse_headers(("Authorization: Bearer token123", "X-Custom: value"))
@@ -311,7 +299,11 @@ def test_cli_call_tool_with_data(mcp_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["message"] == "hello"
+    # MCP SDK returns content as a list of content items
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["type"] == "text"
+    assert output[0]["text"] == "hello"
 
 
 def test_cli_call_weather_tool(mcp_server):
@@ -325,9 +317,11 @@ def test_cli_call_weather_tool(mcp_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["city"] == "Paris"
-    assert output["metric"] is True
-    assert output["temperature"] == 72
+    # MCP SDK returns content as a list of content items
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["type"] == "text"
+    assert "Paris" in output[0]["text"]
 
 
 def test_cli_list_resources(mcp_server):
@@ -350,8 +344,10 @@ def test_cli_read_resource(mcp_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["uri"] == "file:///test.txt"
-    assert output["content"] == "Mock file content"
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["uri"] == "file:///test.txt"
+    assert output[0]["text"] == "Mock file content"
 
 
 
@@ -376,8 +372,10 @@ def test_cli_get_prompt(mcp_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["name"] == "greeting"
-    assert "Alice" in output["prompt"]
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["role"] == "user"
+    assert "Alice" in output[0]["content"]["text"]
 
 
 def test_cli_with_headers(mcp_server):
@@ -419,7 +417,10 @@ def test_cli_json_data(mcp_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["message"] == "complex json"
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["type"] == "text"
+    assert output[0]["text"] == "complex json"
 
 
 def test_cli_connection_error():
