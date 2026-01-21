@@ -45,7 +45,7 @@ For testing local or stdio MCP servers:
 curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
 pip install mcp-proxy
 
-# Start a simple echo server example
+# Start a simple time server example
 # (You'll need to have an MCP server to proxy - see the full documentation below)
 mcp-proxy --port 3000 uvx mcp-server-time
 
