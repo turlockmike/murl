@@ -99,7 +99,7 @@ This sends a `resources/list` request.
 #### Read a Resource
 
 ```bash
-murl http://localhost:3000/resources//path/to/file
+murl http://localhost:3000/resources/path/to/file
 ```
 
 This sends a `resources/read` request with the file path. The path is automatically converted to a `file://` URI.

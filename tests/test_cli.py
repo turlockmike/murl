@@ -202,7 +202,7 @@ def test_map_resources_list():
 
 def test_map_resources_read():
     """Test mapping /resources/<path> to resources/read."""
-    method, params = map_virtual_path_to_method("/resources//path/to/file", {})
+    method, params = map_virtual_path_to_method("/resources/path/to/file", {})
     assert method == "resources/read"
     assert params == {"uri": "file:///path/to/file"}
 
@@ -210,7 +210,7 @@ def test_map_resources_read():
 def test_map_resources_read_with_additional_params():
     """Test mapping /resources/<path> to resources/read with additional parameters."""
     data = {"format": "json", "encoding": "utf-8"}
-    method, params = map_virtual_path_to_method("/resources//path/to/file", data)
+    method, params = map_virtual_path_to_method("/resources/path/to/file", data)
     assert method == "resources/read"
     assert params == {"uri": "file:///path/to/file", "format": "json", "encoding": "utf-8"}
 
@@ -314,7 +314,7 @@ def test_cli_read_resource(mcp_server):
     """Test reading a resource with real server."""
     runner = CliRunner()
     result = runner.invoke(main, [
-        f"{mcp_server}/resources//test.txt"
+        f"{mcp_server}/resources/test.txt"
     ])
     
     assert result.exit_code == 0

@@ -152,9 +152,11 @@ def map_virtual_path_to_method(virtual_path: str, data: Dict[str, Any]) -> Tuple
         else:
             # /resources/<path> -> resources/read with file:// URI
             # Join all parts after 'resources' to form the file path
-            # For absolute paths, use double slash: /resources//path/to/file
-            # This creates file:///path/to/file (three slashes total)
+            # Prepend '/' to make it an absolute path: /resources/path/to/file -> file:///path/to/file
             file_path = '/'.join(parts[1:])
+            # Ensure absolute path starts with '/'
+            if not file_path.startswith('/'):
+                file_path = '/' + file_path
             uri = f'file://{file_path}'
             # Merge with any additional data parameters passed via -d flags
             return 'resources/read', {'uri': uri, **data}
@@ -378,6 +380,9 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
         
         # Call a tool with JSON data
         murl http://localhost:3000/tools/config -d '{"theme": "dark"}'
+        
+        # Read a resource (file path)
+        murl http://localhost:3000/resources/path/to/file
         
         # Add authorization header
         murl http://localhost:3000/prompts -H "Authorization: Bearer token123"
