@@ -458,3 +458,29 @@ def test_help():
     assert result.exit_code == 0
     assert "MCP Curl" in result.output
     assert "Model Context Protocol" in result.output
+
+
+def test_upgrade_option():
+    """Test --upgrade flag."""
+    from unittest.mock import patch, MagicMock
+    
+    runner = CliRunner()
+    
+    # Mock subprocess.run to avoid actual pip execution
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "Successfully installed mcp-curl-0.2.1"
+    mock_result.stderr = ""
+    
+    with patch('subprocess.run', return_value=mock_result) as mock_run:
+        result = runner.invoke(main, ["--upgrade"])
+        
+        # Verify subprocess.run was called with correct arguments
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        assert call_args[0][0] == [sys.executable, "-m", "pip", "install", "--upgrade", "mcp-curl"]
+        assert call_args[1]['timeout'] == 300
+        
+    assert result.exit_code == 0
+    assert "Upgrading murl" in result.output
+    assert "Upgrade complete" in result.output

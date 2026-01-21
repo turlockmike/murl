@@ -322,46 +322,23 @@ def run_upgrade(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
     
-    # Repository configuration - using master branch as primary
-    github_repo_url = "https://raw.githubusercontent.com/turlockmike/murl/master/install.sh"
+    click.echo("Upgrading murl...")
     
+    # Helper function for error handling
+    def show_error_and_exit(error_msg: str):
+        click.echo(f"Error: {error_msg}", err=True)
+        click.echo("Please try upgrading manually with: pip install --upgrade mcp-curl", err=True)
+        ctx.exit(1)
+    
+    # Use pip to upgrade mcp-curl package
+    # Set a reasonable timeout to prevent hanging
     try:
-        # Check if required tools are available
-        try:
-            subprocess.run(["curl", "--version"], capture_output=True, check=True)
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            click.echo("Error: curl is not installed. Please install curl and try again.", err=True)
-            ctx.exit(1)
-        
-        try:
-            subprocess.run(["bash", "--version"], capture_output=True, check=True)
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            click.echo("Error: bash is not installed. Please install bash and try again.", err=True)
-            ctx.exit(1)
-        
-        click.echo("Upgrading murl...")
-        click.echo("Downloading and running install script...")
-        
-        # Use subprocess with list arguments to avoid shell injection
-        # First download the script
-        download_result = subprocess.run(
-            ["curl", "-sSL", github_repo_url],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-        
-        if download_result.returncode != 0:
-            click.echo(f"Error: Failed to download install script: {download_result.stderr}", err=True)
-            ctx.exit(1)
-        
-        # Then execute it with bash
         result = subprocess.run(
-            ["bash"],
-            input=download_result.stdout,
+            [sys.executable, "-m", "pip", "install", "--upgrade", "mcp-curl"],
             capture_output=True,
             text=True,
-            check=False
+            check=False,
+            timeout=300  # 5 minute timeout
         )
         
         if result.returncode == 0:
@@ -369,18 +346,9 @@ def run_upgrade(ctx, param, value):
             click.echo("✓ Upgrade complete!")
             ctx.exit(0)
         else:
-            click.echo(f"Error during upgrade: {result.stderr}", err=True)
-            ctx.exit(1)
-            
-    except subprocess.SubprocessError as e:
-        click.echo(f"Error: Subprocess failed: {e}", err=True)
-        ctx.exit(1)
-    except PermissionError as e:
-        click.echo(f"Error: Permission denied: {e}. You may need elevated privileges.", err=True)
-        ctx.exit(1)
-    except Exception as e:
-        click.echo(f"Error: Unexpected error during upgrade: {e}", err=True)
-        ctx.exit(1)
+            show_error_and_exit(f"Upgrade failed:\n{result.stderr}")
+    except subprocess.TimeoutExpired:
+        show_error_and_exit("Upgrade timed out after 5 minutes.")
 
 
 @click.command()
