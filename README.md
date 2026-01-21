@@ -8,6 +8,23 @@ A curl-like CLI tool for interacting with Model Context Protocol (MCP) servers.
 
 MCP (Model Context Protocol) is an open standard developed by Anthropic for AI models to access external data sources, tools, and services. It provides a universal way for large language models (LLMs) to interact with various resources securely and efficiently.
 
+## Quick Start
+
+Try murl immediately with a public MCP server:
+
+```bash
+# Install
+pip install murl
+
+# List available tools
+murl https://demo-day.mcp.cloudflare.com/tools
+
+# Call a tool
+murl https://demo-day.mcp.cloudflare.com/tools/mcp_demo_day_info
+```
+
+This gives you instant gratification and confirms your installation works before setting up your own servers.
+
 ## Installation
 
 ### Quick Install (Recommended)
