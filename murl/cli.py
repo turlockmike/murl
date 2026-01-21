@@ -219,6 +219,126 @@ def parse_headers(header_flags: Tuple[str, ...]) -> Dict[str, str]:
     return headers
 
 
+def perform_initialization_handshake(
+    session_endpoint: str,
+    lines_iter,
+    verbose: bool
+) -> bool:
+    """Perform MCP initialization handshake.
+    
+    This sends the initialize request and notifications/initialized as per
+    MCP specification before any other requests can be made.
+    
+    Args:
+        session_endpoint: The session endpoint to send requests to
+        lines_iter: Iterator for reading SSE stream responses
+        verbose: Whether to print verbose output
+        
+    Returns:
+        True if initialization successful, False otherwise
+    """
+    try:
+        # Create initialize request per MCP spec
+        init_request = {
+            "jsonrpc": "2.0",
+            "id": 0,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "murl",
+                    "version": __version__
+                }
+            }
+        }
+        
+        if verbose:
+            click.echo("=== Performing MCP Initialization ===", err=True)
+            click.echo(json.dumps(init_request, indent=2), err=True)
+        
+        # Send initialize request
+        init_response = requests.post(
+            session_endpoint,
+            json=init_request,
+            headers={'Content-Type': 'application/json'},
+            timeout=SSE_POST_TIMEOUT
+        )
+        
+        if init_response.status_code not in (200, 202):
+            if verbose:
+                click.echo(f"Initialize request failed: {init_response.status_code}", err=True)
+            return False
+        
+        # Read initialize response from SSE stream
+        start_time = time.time()
+        init_response_data = None
+        
+        for line in lines_iter:
+            if time.time() - start_time > SSE_READ_TIMEOUT:
+                if verbose:
+                    click.echo("Timeout waiting for initialize response", err=True)
+                return False
+            
+            if not line:
+                continue
+            
+            if line.startswith('data: '):
+                data_str = line[6:]
+                try:
+                    message = json.loads(data_str)
+                    if isinstance(message, dict) and message.get('id') == 0:
+                        init_response_data = message
+                        if verbose:
+                            click.echo("Received initialize response", err=True)
+                        break
+                except json.JSONDecodeError:
+                    continue
+        
+        if not init_response_data:
+            if verbose:
+                click.echo("No initialize response received", err=True)
+            return False
+        
+        # Check for error in initialize response
+        if 'error' in init_response_data:
+            if verbose:
+                click.echo(f"Initialize error: {init_response_data['error']}", err=True)
+            return False
+        
+        # Send initialized notification (no response expected)
+        initialized_notification = {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+            "params": {}
+        }
+        
+        if verbose:
+            click.echo("Sending initialized notification", err=True)
+        
+        notif_response = requests.post(
+            session_endpoint,
+            json=initialized_notification,
+            headers={'Content-Type': 'application/json'},
+            timeout=SSE_POST_TIMEOUT
+        )
+        
+        if notif_response.status_code not in (200, 202):
+            if verbose:
+                click.echo(f"Initialized notification failed: {notif_response.status_code}", err=True)
+            return False
+        
+        if verbose:
+            click.echo("MCP initialization complete", err=True)
+        
+        return True
+        
+    except Exception as e:
+        if verbose:
+            click.echo(f"Initialization error: {e}", err=True)
+        return False
+
+
 def try_session_based_sse_request(
     base_url: str,
     jsonrpc_request: Dict[str, Any],
@@ -229,8 +349,9 @@ def try_session_based_sse_request(
     
     This handles the mcp-proxy session-based SSE workflow:
     1. Connect to SSE endpoint to get session ID
-    2. POST request to session-specific endpoint
-    3. Read response from SSE stream
+    2. Perform MCP initialization handshake
+    3. POST request to session-specific endpoint
+    4. Read response from SSE stream
     
     Args:
         base_url: The base URL of the server
@@ -286,6 +407,15 @@ def try_session_based_sse_request(
         
         if verbose:
             click.echo(f"Got session endpoint: {session_endpoint}", err=True)
+        
+        # Perform MCP initialization handshake
+        if not perform_initialization_handshake(session_endpoint, lines_iter, verbose):
+            if verbose:
+                click.echo("MCP initialization failed", err=True)
+            sse_response.close()
+            return None
+        
+        if verbose:
             click.echo("Sending request to session endpoint...", err=True)
         
         # Now POST the actual request to the session endpoint
