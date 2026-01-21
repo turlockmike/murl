@@ -12,12 +12,22 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Cleanup function
+cleanup() {
+    if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
+        rm -rf "$TEMP_DIR"
+    fi
+}
+
+# Set trap to cleanup on exit
+trap cleanup EXIT
+
 echo -e "${GREEN}Installing murl...${NC}"
 
 # Check if Python is installed
 if ! command -v python3 &> /dev/null && ! command -v python &> /dev/null; then
     echo -e "${RED}Error: Python 3 is required but not installed.${NC}"
-    echo "Please install Python 3.8 or later and try again."
+    echo "Please install Python 3.10 or later and try again."
     exit 1
 fi
 
@@ -51,16 +61,45 @@ if ! $PYTHON_CMD -m pip --version &> /dev/null; then
     exit 1
 fi
 
-echo -e "${GREEN}Installing murl via pip...${NC}"
+# Check if git is installed
+if ! command -v git &> /dev/null; then
+    echo -e "${RED}Error: git is required but not installed.${NC}"
+    echo "Please install git using your system package manager:"
+    echo "  - Ubuntu/Debian: sudo apt-get install git"
+    echo "  - Fedora/RHEL: sudo dnf install git"
+    echo "  - macOS: xcode-select --install"
+    exit 1
+fi
+
+echo -e "${GREEN}Downloading murl from GitHub...${NC}"
+
+# Create temporary directory
+TEMP_DIR=$(mktemp -d)
+if [[ -z "$TEMP_DIR" || ! -d "$TEMP_DIR" ]]; then
+    echo -e "${RED}Error: Failed to create temporary directory${NC}"
+    exit 1
+fi
+
+cd "$TEMP_DIR"
+
+# Clone the repository
+if ! git clone --single-branch https://github.com/turlockmike/murl.git; then
+    echo -e "${RED}Error: Failed to clone repository${NC}"
+    exit 1
+fi
+
+cd murl
+
+echo -e "${GREEN}Installing murl from source...${NC}"
 
 # Install murl
 if [[ "$EUID" -eq 0 ]]; then
     # Running as root
-    $PYTHON_CMD -m pip install --upgrade murl
+    $PYTHON_CMD -m pip install .
     echo -e "${GREEN}✓ murl installed successfully${NC}"
 else
     # Running as user - try with --user flag
-    if $PYTHON_CMD -m pip install --user --upgrade murl; then
+    if $PYTHON_CMD -m pip install --user .; then
         echo -e "${GREEN}✓ murl installed successfully${NC}"
         
         # Check if user's local bin is in PATH
@@ -76,7 +115,7 @@ else
         # If --user fails, try with sudo
         echo -e "${YELLOW}User installation failed. Trying with sudo...${NC}"
         if command -v sudo &> /dev/null; then
-            sudo $PYTHON_CMD -m pip install --upgrade murl
+            sudo $PYTHON_CMD -m pip install .
             echo -e "${GREEN}✓ murl installed successfully${NC}"
         else
             echo -e "${RED}Error: Cannot install murl. Please run as root or install pip for your user.${NC}"

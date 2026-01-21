@@ -18,13 +18,7 @@ Install murl with a single command:
 curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
 ```
 
-This will automatically install murl using pip and ensure it's available in your PATH.
-
-### Using pip
-
-```bash
-pip install murl
-```
+This will automatically download and install murl from source.
 
 ### From Source
 
