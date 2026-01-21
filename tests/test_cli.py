@@ -16,6 +16,7 @@ from murl.cli import (
     map_virtual_path_to_method,
     create_jsonrpc_request,
     parse_headers,
+    detect_installation_method,
 )
 from murl import __version__
 
@@ -469,3 +470,30 @@ def test_help():
     assert result.exit_code == 0
     assert "MCP Curl" in result.output
     assert "Model Context Protocol" in result.output
+
+
+def test_detect_installation_method():
+    """Test installation method detection."""
+    method = detect_installation_method()
+    # Should return one of the valid values
+    assert method in ['pip', 'pipx', 'editable', 'unknown']
+
+
+def test_upgrade_flag_editable():
+    """Test --upgrade flag with editable install."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--upgrade"])
+    # Should exit successfully without error
+    assert result.exit_code == 0
+    # Should provide instructions for editable installs
+    assert "git pull" in result.output or "Successfully upgraded" in result.output or "Upgrading murl" in result.output
+
+
+def test_upgrade_flag_verbose():
+    """Test --upgrade flag with verbose output."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--upgrade", "-v"])
+    # Should exit successfully
+    assert result.exit_code == 0
+    # Should show detected installation method
+    assert "Detected installation method:" in result.output or "git pull" in result.output or "Upgrading murl" in result.output

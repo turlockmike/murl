@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import re
+import subprocess
 import sys
 import time
 from typing import Dict, Any, Tuple, Optional
@@ -18,6 +19,89 @@ SSE_CONNECTION_TIMEOUT = 30  # Timeout for establishing SSE connection
 SSE_POST_TIMEOUT = 10  # Timeout for POST request to session endpoint
 SSE_READ_TIMEOUT = 10  # Timeout for reading response from SSE stream
 SSE_LOG_TRUNCATE_LENGTH = 100  # Max characters to show in verbose SSE logs
+
+
+def detect_installation_method() -> str:
+    """Detect how murl was installed.
+    
+    Returns:
+        One of: 'pipx', 'pip', 'editable', 'unknown'
+    """
+    try:
+        # Run pip show to check if it's an editable install
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'show', 'murl'],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        if result.returncode == 0:
+            output = result.stdout
+            # Check if it's an editable install
+            if 'Editable project location:' in output:
+                return 'editable'
+            
+            # Check if installed via pipx
+            if 'pipx' in output.lower():
+                return 'pipx'
+        
+        # If pip show doesn't work, fall back to path-based detection
+        import murl
+        install_path = os.path.dirname(os.path.abspath(murl.__file__))
+        
+        # Check if installed via pipx (typically in ~/.local/pipx/venvs/)
+        if 'pipx' in install_path:
+            return 'pipx'
+        
+        # Default to pip
+        return 'pip'
+    except Exception:
+        return 'unknown'
+
+
+def upgrade_murl(verbose: bool = False) -> None:
+    """Upgrade murl to the latest version.
+    
+    Args:
+        verbose: Whether to show verbose output
+    """
+    installation_method = detect_installation_method()
+    
+    if verbose:
+        click.echo(f"Detected installation method: {installation_method}", err=True)
+    
+    try:
+        if installation_method == 'pipx':
+            click.echo("Upgrading murl via pipx...")
+            subprocess.run(['pipx', 'upgrade', 'murl'], check=True)
+            click.echo("✓ Successfully upgraded murl via pipx")
+        elif installation_method == 'editable':
+            click.echo("Detected editable/development installation.")
+            click.echo("To upgrade, run:")
+            click.echo("  cd <murl-repo-directory>")
+            click.echo("  git pull")
+            click.echo("  pip install -e .")
+        elif installation_method == 'pip':
+            click.echo("Upgrading murl via pip...")
+            subprocess.run([sys.executable, '-m', 'pip', 'install', '--upgrade', 'murl'], check=True)
+            click.echo("✓ Successfully upgraded murl via pip")
+        else:
+            click.echo("Error: Could not detect installation method.", err=True)
+            click.echo("Please upgrade manually using one of:", err=True)
+            click.echo("  pip install --upgrade murl", err=True)
+            click.echo("  pipx upgrade murl", err=True)
+            sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        click.echo(f"Error: Upgrade failed: {e}", err=True)
+        sys.exit(1)
+    except FileNotFoundError:
+        if installation_method == 'pipx':
+            click.echo("Error: pipx not found. Install it or upgrade manually:", err=True)
+            click.echo("  pip install --upgrade murl", err=True)
+        else:
+            click.echo("Error: pip not found.", err=True)
+        sys.exit(1)
 
 
 def parse_url(full_url: str) -> Tuple[str, str]:
@@ -369,7 +453,9 @@ def try_session_based_sse_request(
               help='Enable verbose output (prints JSON-RPC payload and HTTP headers to stderr)')
 @click.option('--version', is_flag=True,
               help='Show version information. Use with -v for detailed info.')
-def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], verbose: bool, version: bool):
+@click.option('--upgrade', is_flag=True,
+              help='Upgrade murl to the latest version')
+def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], verbose: bool, version: bool, upgrade: bool):
     """murl - MCP Curl: A curl-like CLI tool for Model Context Protocol (MCP) servers.
 
     MCP (Model Context Protocol) is an open standard for AI models to access
@@ -393,6 +479,11 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
         # Add authorization header
         murl http://localhost:3000/prompts -H "Authorization: Bearer token123"
     """
+    # Handle --upgrade flag
+    if upgrade:
+        upgrade_murl(verbose)
+        return
+    
     # Handle --version flag
     if version:
         if verbose:

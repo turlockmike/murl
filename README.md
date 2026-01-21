@@ -68,7 +68,8 @@ Where `<url>` is the MCP server endpoint with a virtual path (e.g., `http://loca
 - `-d, --data <key=value>` - Add data to the request. Can be used multiple times.
 - `-H, --header <key: value>` - Add custom HTTP headers (e.g., for authentication).
 - `-v, --verbose` - Enable verbose output (prints request/response details to stderr).
-- `--version` - Show version information.
+- `--version` - Show version information. Use with `-v` for detailed info (Python version, platform, install path).
+- `--upgrade` - Upgrade murl to the latest version.
 - `--help` - Show help message.
 
 ### Examples
