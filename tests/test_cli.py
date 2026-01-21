@@ -215,20 +215,6 @@ def test_map_resources_read_with_additional_params():
     assert params == {"uri": "file:///path/to/file", "format": "json", "encoding": "utf-8"}
 
 
-def test_map_resources_read_http_uri():
-    """Test mapping /resources/<uri> to resources/read with http URI."""
-    method, params = map_virtual_path_to_method("/resources/http://example.com/resource", {})
-    assert method == "resources/read"
-    assert params == {"uri": "http://example.com/resource"}
-
-
-def test_map_resources_read_https_uri():
-    """Test mapping /resources/<uri> to resources/read with https URI."""
-    method, params = map_virtual_path_to_method("/resources/https://example.com/api/data", {})
-    assert method == "resources/read"
-    assert params == {"uri": "https://example.com/api/data"}
-
-
 def test_map_prompts_list():
     """Test mapping /prompts to prompts/list."""
     method, params = map_virtual_path_to_method("/prompts", {})

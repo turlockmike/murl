@@ -152,7 +152,7 @@ def map_virtual_path_to_method(virtual_path: str, data: Dict[str, Any]) -> Tuple
         else:
             # /resources/<uri> -> resources/read with URI from path
             # Join all parts after 'resources' to form the URI
-            # This handles URIs like file:///path/to/file or http://example.com/resource
+            # This handles file URIs like file:///path/to/file
             uri = '/'.join(parts[1:])
             # Merge with any additional data parameters passed via -d flags
             return 'resources/read', {'uri': uri, **data}
