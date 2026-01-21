@@ -199,7 +199,7 @@ pytest --cov=murl --cov-report=html
 
 ## Requirements
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - `click` - For CLI argument parsing
 - `requests` - For HTTP requests
 

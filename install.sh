@@ -37,8 +37,8 @@ PYTHON_VERSION=$($PYTHON_CMD -c 'import sys; print(".".join(map(str, sys.version
 PYTHON_MAJOR=$($PYTHON_CMD -c 'import sys; print(sys.version_info.major)')
 PYTHON_MINOR=$($PYTHON_CMD -c 'import sys; print(sys.version_info.minor)')
 
-if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 8 ]); then
-    echo -e "${RED}Error: Python 3.8 or later is required.${NC}"
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 10 ]); then
+    echo -e "${RED}Error: Python 3.10 or later is required.${NC}"
     echo "Found: Python $PYTHON_VERSION"
     exit 1
 fi
