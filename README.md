@@ -1,5 +1,7 @@
 # murl - MCP Curl
 
+[![Tests](https://github.com/turlockmike/murl/actions/workflows/test.yml/badge.svg)](https://github.com/turlockmike/murl/actions/workflows/test.yml)
+
 A curl-like CLI tool for interacting with Model Context Protocol (MCP) servers.
 
 ## What is MCP?
