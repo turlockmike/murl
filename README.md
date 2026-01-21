@@ -10,6 +10,16 @@ MCP (Model Context Protocol) is an open standard developed by Anthropic for AI m
 
 ## Installation
 
+### Quick Install (Recommended)
+
+Install murl with a single command:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
+```
+
+This will automatically install murl using pip and ensure it's available in your PATH.
+
 ### Using pip
 
 ```bash
@@ -19,11 +29,8 @@ pip install murl
 ### Using Homebrew
 
 ```bash
-# Install from Homebrew tap (coming soon)
 brew install turlockmike/tap/murl
 ```
-
-For now, please use pip installation.
 
 ### From Source
 

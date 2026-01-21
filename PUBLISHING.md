@@ -29,13 +29,33 @@ If you prefer to use an API token instead of trusted publishing:
 
 ### Homebrew Publishing (Optional)
 
-The workflow automatically generates a Homebrew formula and uploads it as an artifact. To publish to a Homebrew tap:
+The workflow automatically generates a Homebrew formula and can publish it to a tap repository.
 
-1. Create a tap repository (e.g., `homebrew-tap`)
-2. Add the generated formula to the tap
-3. Users can then install with: `brew install turlockmike/tap/murl`
+#### Setup Homebrew Tap Publishing
 
-For automated tap updates, you can extend the workflow with a step that commits the formula to your tap repository.
+1. Create a tap repository: `turlockmike/homebrew-tap`
+   ```bash
+   gh repo create turlockmike/homebrew-tap --public
+   ```
+
+2. Generate a GitHub Personal Access Token:
+   - Go to https://github.com/settings/tokens/new
+   - Select scopes: `repo` (Full control of private repositories)
+   - Generate token
+
+3. Add the token as a repository secret:
+   - Go to repository Settings → Secrets and variables → Actions
+   - Add new repository secret:
+     - **Name**: `HOMEBREW_TAP_TOKEN`
+     - **Value**: (paste your token)
+
+4. The workflow will automatically:
+   - Generate the formula from the PyPI package
+   - Clone the tap repository
+   - Commit and push the updated formula
+   - Users can install with: `brew install turlockmike/tap/murl`
+
+If the token is not set, the workflow will still generate the formula as an artifact for manual deployment.
 
 ## Publishing a New Version
 

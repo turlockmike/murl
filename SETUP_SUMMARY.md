@@ -18,15 +18,27 @@ This document provides a quick overview of the publishing setup that has been im
 - Includes installation instructions
 - Generates release notes from commits
 
-### 3. Homebrew Formula Generation
+### 3. Homebrew Formula Generation & Publishing
 - Automatically generates a Homebrew formula file
 - Downloads package from PyPI and calculates SHA256
-- Uploads formula as a workflow artifact (90-day retention)
-- Can be manually added to a Homebrew tap
+- **Publishes to Homebrew tap** (`turlockmike/homebrew-tap`) if token is configured
+- Falls back to artifact upload if tap publishing is not configured
+- Users can install with: `brew install turlockmike/tap/murl`
 
-### 4. Documentation
+### 4. Curl Install Script
+- **Install Script**: `install.sh` 
+- One-liner installation: `curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash`
+- Features:
+  - Detects Python version and validates requirements
+  - Installs via pip with automatic fallback strategies
+  - Handles user vs. system installation
+  - Provides PATH configuration guidance
+  - Verifies installation success
+
+### 5. Documentation
 - **PUBLISHING.md**: Complete guide for maintainers on how to publish new versions
-- **README.md**: Updated with Homebrew installation instructions and link to publishing docs
+- **README.md**: Updated with all installation methods including curl install
+- **SETUP_SUMMARY.md**: Quick reference with setup instructions
 
 ## 🔐 Required Setup (One-Time)
 
@@ -98,16 +110,34 @@ git push origin v0.2.0
 
 ## 🍺 Homebrew Setup (Optional)
 
-The workflow generates a Homebrew formula but doesn't automatically publish it. To make it available via Homebrew:
+The workflow can automatically publish to your Homebrew tap. To enable this:
 
-### Option 1: Create a Homebrew Tap
-1. Create a new repository: `homebrew-tap`
-2. After each release, download the formula artifact from the workflow
-3. Add it to your tap repository as `Formula/murl.rb`
-4. Users can install with: `brew install turlockmike/tap/murl`
+### Step 1: Create Homebrew Tap Repository
+```bash
+gh repo create turlockmike/homebrew-tap --public
+```
 
-### Option 2: Submit to Homebrew Core
-Once the project is stable and popular, you can submit it to Homebrew's main repository.
+Or manually create a repository named `homebrew-tap` under your GitHub account.
+
+### Step 2: Generate GitHub Token
+1. Go to https://github.com/settings/tokens/new
+2. Select scopes: `repo` (Full control of private repositories)
+3. Generate token and copy it
+
+### Step 3: Add Token to Repository
+1. Go to your murl repository settings
+2. Navigate to Secrets and variables > Actions
+3. Add a new repository secret:
+   - **Name**: `HOMEBREW_TAP_TOKEN`
+   - **Value**: (paste your GitHub token)
+
+### Step 4: Done!
+Now when you publish a new version, the workflow will automatically:
+- Generate the Homebrew formula
+- Push it to `turlockmike/homebrew-tap`
+- Users can install with: `brew install turlockmike/tap/murl`
+
+If the token is not configured, the formula will still be generated and saved as a workflow artifact for manual deployment.
 
 ## 🧪 Testing the Workflow
 
