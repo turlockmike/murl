@@ -10,15 +10,21 @@ MCP (Model Context Protocol) is an open standard developed by Anthropic for AI m
 
 ## Installation
 
+### Quick Install (Recommended)
+
+Install murl with a single command:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
+```
+
+This will automatically install murl using pip and ensure it's available in your PATH.
+
 ### Using pip
 
 ```bash
 pip install murl
 ```
-
-### Using Homebrew
-
-Homebrew support is planned. For now, please use pip installation.
 
 ### From Source
 
@@ -193,10 +199,14 @@ pytest --cov=murl --cov-report=html
 
 ## Requirements
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - `click` - For CLI argument parsing
 - `requests` - For HTTP requests
 
 ## License
 
 MIT License - see LICENSE file for details
+
+## Publishing
+
+For maintainers: See [PUBLISHING.md](PUBLISHING.md) for instructions on publishing new versions to PyPI.
