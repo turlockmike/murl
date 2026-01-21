@@ -1,6 +1,8 @@
 """CLI entry point for murl."""
 
 import json
+import os
+import platform
 import re
 import sys
 import time
@@ -358,15 +360,16 @@ def try_session_based_sse_request(
 
 
 @click.command()
-@click.argument('url')
+@click.argument('url', required=False)
 @click.option('-d', '--data', 'data_flags', multiple=True, 
               help='Add data to the request. Format: key=value or JSON string')
 @click.option('-H', '--header', 'header_flags', multiple=True,
               help='Add custom HTTP header. Format: "Key: Value"')
 @click.option('-v', '--verbose', is_flag=True,
               help='Enable verbose output (prints JSON-RPC payload and HTTP headers to stderr)')
-@click.version_option(version=__version__)
-def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], verbose: bool):
+@click.option('--version', is_flag=True,
+              help='Show version information. Use with -v for detailed info.')
+def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], verbose: bool, version: bool):
     """murl - MCP Curl: A curl-like CLI tool for Model Context Protocol (MCP) servers.
 
     MCP (Model Context Protocol) is an open standard for AI models to access
@@ -390,6 +393,32 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
         # Add authorization header
         murl http://localhost:3000/prompts -H "Authorization: Bearer token123"
     """
+    # Handle --version flag
+    if version:
+        if verbose:
+            # Show enhanced version information
+            click.echo(f"murl {__version__}")
+            click.echo(f"Python {sys.version.split()[0]}")
+            click.echo(f"Platform: {platform.system().lower()} ({platform.machine()})")
+            
+            # Try to get install path
+            try:
+                import murl
+                install_path = os.path.dirname(os.path.abspath(murl.__file__))
+                click.echo(f"Install path: {install_path}")
+            except Exception:
+                pass
+        else:
+            # Show simple version
+            click.echo(f"murl, version {__version__}")
+        return
+    
+    # URL is required for non-version commands
+    if not url:
+        click.echo("Error: Missing argument 'URL'.", err=True)
+        click.echo("Try 'murl --help' for help.", err=True)
+        sys.exit(2)
+    
     try:
         # Parse URL
         base_url, virtual_path = parse_url(url)

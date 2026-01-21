@@ -448,6 +448,18 @@ def test_version_option():
     result = runner.invoke(main, ["--version"])
     assert result.exit_code == 0
     assert __version__ in result.output
+    assert "murl, version" in result.output
+
+
+def test_version_verbose():
+    """Test --version with -v flag for detailed info."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--version", "-v"])
+    assert result.exit_code == 0
+    assert __version__ in result.output
+    assert "Python" in result.output
+    assert "Platform:" in result.output
+    assert "Install path:" in result.output
 
 
 def test_help():
