@@ -10,6 +10,28 @@ MCP (Model Context Protocol) is an open standard developed by Anthropic for AI m
 
 ## Quick Start
 
+### Try with Public Demo Server (No Setup Required)
+
+Test murl immediately with a public MCP server:
+
+```bash
+# Install murl
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
+# Or using pip: pip install mcp-curl
+
+# List available tools on the public echo server
+murl https://echo.mcp.inevitable.fyi/mcp/tools
+
+# Call the echo tool
+murl https://echo.mcp.inevitable.fyi/mcp/tools/echo -d message="Hello, World!"
+```
+
+**Public demo servers:**
+- MCPlane Echo Server: `https://echo.mcp.inevitable.fyi/mcp` - Simple echo server for testing
+- Microsoft Learn MCP: `https://learn.microsoft.com/api/mcp` - Documentation and learning tools
+
+### Quick Local Setup with mcp-proxy
+
 Get started with murl in minutes using a local MCP server:
 
 ```bash
