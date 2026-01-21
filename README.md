@@ -10,27 +10,6 @@ MCP (Model Context Protocol) is an open standard developed by Anthropic for AI m
 
 ## Quick Start
 
-### Try with Public Demo Server (No Setup Required)
-
-Test murl immediately with a public MCP server hosted by Cloudflare:
-
-```bash
-# Install murl
-curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
-# Or using pip: pip install mcp-curl
-
-# List available tools on the Cloudflare demo server
-murl https://demo-day.mcp.cloudflare.com/sse/tools
-
-# Call a tool (example may vary based on available tools)
-murl https://demo-day.mcp.cloudflare.com/sse/tools/get_info
-```
-
-**Public demo server:**
-- Cloudflare MCP Demo: `https://demo-day.mcp.cloudflare.com/sse` - Public test server for quick experimentation
-
-### Quick Local Setup with mcp-proxy
-
 Get started with murl in minutes using a local MCP server:
 
 ```bash
