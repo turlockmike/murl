@@ -1,7 +1,9 @@
 """CLI entry point for murl."""
 
 import json
+import os
 import re
+import subprocess
 import sys
 import time
 from typing import Dict, Any, Tuple, Optional
@@ -487,16 +489,106 @@ def try_session_based_sse_request(
         return None
 
 
+def print_version(ctx, param, value):
+    """Print detailed version information."""
+    if not value or ctx.resilient_parsing:
+        return
+    
+    # Get Python version
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    
+    # Try to get installation path
+    try:
+        import murl
+        install_path = os.path.dirname(os.path.abspath(murl.__file__))
+    except Exception:
+        install_path = "unknown"
+    
+    click.echo(f"murl version {__version__}")
+    click.echo(f"Python {python_version}")
+    click.echo(f"Installation path: {install_path}")
+    ctx.exit()
+
+
+def run_upgrade(ctx, param, value):
+    """Run the upgrade process."""
+    if not value or ctx.resilient_parsing:
+        return
+    
+    # Repository configuration - using master branch as primary
+    github_repo_url = "https://raw.githubusercontent.com/turlockmike/murl/master/install.sh"
+    
+    try:
+        # Check if required tools are available
+        try:
+            subprocess.run(["curl", "--version"], capture_output=True, check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            click.echo("Error: curl is not installed. Please install curl and try again.", err=True)
+            ctx.exit(1)
+        
+        try:
+            subprocess.run(["bash", "--version"], capture_output=True, check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            click.echo("Error: bash is not installed. Please install bash and try again.", err=True)
+            ctx.exit(1)
+        
+        click.echo("Upgrading murl...")
+        click.echo("Downloading and running install script...")
+        
+        # Use subprocess with list arguments to avoid shell injection
+        # First download the script
+        download_result = subprocess.run(
+            ["curl", "-sSL", github_repo_url],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        if download_result.returncode != 0:
+            click.echo(f"Error: Failed to download install script: {download_result.stderr}", err=True)
+            ctx.exit(1)
+        
+        # Then execute it with bash
+        result = subprocess.run(
+            ["bash"],
+            input=download_result.stdout,
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        if result.returncode == 0:
+            click.echo(result.stdout)
+            click.echo("✓ Upgrade complete!")
+            ctx.exit(0)
+        else:
+            click.echo(f"Error during upgrade: {result.stderr}", err=True)
+            ctx.exit(1)
+            
+    except subprocess.SubprocessError as e:
+        click.echo(f"Error: Subprocess failed: {e}", err=True)
+        ctx.exit(1)
+    except PermissionError as e:
+        click.echo(f"Error: Permission denied: {e}. You may need elevated privileges.", err=True)
+        ctx.exit(1)
+    except Exception as e:
+        click.echo(f"Error: Unexpected error during upgrade: {e}", err=True)
+        ctx.exit(1)
+
+
 @click.command()
-@click.argument('url')
+@click.argument('url', required=False)
 @click.option('-d', '--data', 'data_flags', multiple=True, 
               help='Add data to the request. Format: key=value or JSON string')
 @click.option('-H', '--header', 'header_flags', multiple=True,
               help='Add custom HTTP header. Format: "Key: Value"')
 @click.option('-v', '--verbose', is_flag=True,
               help='Enable verbose output (prints JSON-RPC payload and HTTP headers to stderr)')
-@click.version_option(version=__version__)
-def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], verbose: bool):
+@click.option('--version', is_flag=True, callback=print_version, expose_value=False, is_eager=True,
+              help='Show detailed version information')
+@click.option('--upgrade', is_flag=True, callback=run_upgrade, expose_value=False, is_eager=True,
+              help='Upgrade murl to the latest version')
+def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], verbose: bool):
     """murl - MCP Curl: A curl-like CLI tool for Model Context Protocol (MCP) servers.
 
     MCP (Model Context Protocol) is an open standard for AI models to access
@@ -520,6 +612,12 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
         # Add authorization header
         murl http://localhost:3000/prompts -H "Authorization: Bearer token123"
     """
+    # If no URL is provided, show help
+    if url is None:
+        ctx = click.get_current_context()
+        click.echo(ctx.get_help())
+        ctx.exit(0)
+    
     try:
         # Parse URL
         base_url, virtual_path = parse_url(url)
