@@ -149,11 +149,12 @@ def map_virtual_path_to_method(virtual_path: str, data: Dict[str, Any]) -> Tuple
         if len(parts) == 1:
             # /resources -> resources/list
             return 'resources/list', {}
-        elif len(parts) == 2 and parts[1] == 'read':
-            # /resources/read -> resources/read
-            return 'resources/read', data
         else:
-            raise ValueError(f"Invalid resources path: {virtual_path}")
+            # /resources/<uri> -> resources/read with URI from path
+            # Join all parts after 'resources' to form the URI
+            # This handles URIs like file:///path/to/file or http://example.com/resource
+            uri = '/'.join(parts[1:])
+            return 'resources/read', {'uri': uri}
     
     elif category == 'prompts':
         if len(parts) == 1:

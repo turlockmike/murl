@@ -201,11 +201,24 @@ def test_map_resources_list():
 
 
 def test_map_resources_read():
-    """Test mapping /resources/read to resources/read."""
-    data = {"uri": "file:///path/to/file"}
-    method, params = map_virtual_path_to_method("/resources/read", data)
+    """Test mapping /resources/<uri> to resources/read."""
+    method, params = map_virtual_path_to_method("/resources/file:///path/to/file", {})
     assert method == "resources/read"
     assert params == {"uri": "file:///path/to/file"}
+
+
+def test_map_resources_read_http_uri():
+    """Test mapping /resources/<uri> to resources/read with http URI."""
+    method, params = map_virtual_path_to_method("/resources/http://example.com/resource", {})
+    assert method == "resources/read"
+    assert params == {"uri": "http://example.com/resource"}
+
+
+def test_map_resources_read_https_uri():
+    """Test mapping /resources/<uri> to resources/read with https URI."""
+    method, params = map_virtual_path_to_method("/resources/https://example.com/api/data", {})
+    assert method == "resources/read"
+    assert params == {"uri": "https://example.com/api/data"}
 
 
 def test_map_prompts_list():
@@ -307,14 +320,14 @@ def test_cli_read_resource(mcp_server):
     """Test reading a resource with real server."""
     runner = CliRunner()
     result = runner.invoke(main, [
-        f"{mcp_server}/resources/read",
-        "-d", "uri=file:///test.txt"
+        f"{mcp_server}/resources/file:///test.txt"
     ])
     
     assert result.exit_code == 0
     output = json.loads(result.output)
     assert output["uri"] == "file:///test.txt"
     assert output["content"] == "Mock file content"
+
 
 
 def test_cli_list_prompts(mcp_server):
