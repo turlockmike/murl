@@ -8,6 +8,25 @@ A curl-like CLI tool for interacting with Model Context Protocol (MCP) servers.
 
 MCP (Model Context Protocol) is an open standard developed by Anthropic for AI models to access external data sources, tools, and services. It provides a universal way for large language models (LLMs) to interact with various resources securely and efficiently.
 
+## Quick Start
+
+Try murl immediately with a local test server:
+
+```bash
+# Install murl
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
+
+# In a separate terminal, start a test MCP server (requires Node.js)
+npx -y mcp-proxy -- npx -y @modelcontextprotocol/server-everything
+
+# Now test murl with the server
+murl http://localhost:8080/tools
+murl http://localhost:8080/resources
+murl http://localhost:8080/prompts
+```
+
+This uses Anthropic's reference "everything server" which provides example tools, resources, and prompts for testing.
+
 ## Installation
 
 ### Quick Install (Recommended)
