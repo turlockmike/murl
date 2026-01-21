@@ -201,6 +201,7 @@ async def make_mcp_request(
     base_url: str,
     method: str,
     params: Dict[str, Any],
+    headers: Dict[str, str],
     verbose: bool
 ) -> Any:
     """Make an MCP request using the official SDK.
@@ -209,6 +210,7 @@ async def make_mcp_request(
         base_url: The base URL of the MCP server
         method: The MCP method to call
         params: The method parameters
+        headers: Custom HTTP headers to include in requests
         verbose: Whether to print verbose output
         
     Returns:
@@ -217,56 +219,80 @@ async def make_mcp_request(
     Raises:
         Exception: If the request fails
     """
+    # Validate required parameters before making connection
+    if method == 'tools/call':
+        if params.get('name') is None:
+            raise ValueError("Missing required 'name' parameter for tools/call method")
+    elif method == 'resources/read':
+        if params.get('uri') is None:
+            raise ValueError("Missing required 'uri' parameter for resources/read method")
+    elif method == 'prompts/get':
+        if params.get('name') is None:
+            raise ValueError("Missing required 'name' parameter for prompts/get request")
+    
     if verbose:
         click.echo("=== MCP Request ===", err=True)
         click.echo(f"Method: {method}", err=True)
         click.echo(f"Params: {json.dumps(params, indent=2)}", err=True)
         click.echo(f"URL: {base_url}", err=True)
+        if headers:
+            click.echo(f"Headers: {json.dumps(headers, indent=2)}", err=True)
         click.echo("", err=True)
     
-    async with streamable_http_client(base_url) as (read, write, get_session_id):
-        async with ClientSession(read, write) as session:
-            # Initialize the session
-            init_result = await session.initialize()
-            
-            if verbose:
-                click.echo("=== MCP Initialization ===", err=True)
-                click.echo(f"Protocol Version: {init_result.protocolVersion}", err=True)
-                click.echo(f"Server: {init_result.serverInfo.name} {init_result.serverInfo.version}", err=True)
-                click.echo("", err=True)
-            
-            # Route to appropriate SDK method
-            if method == 'tools/list':
-                result = await session.list_tools()
-                # Convert pydantic models to dict
-                return [tool.model_dump(mode='json', exclude_none=True) for tool in result.tools]
-            elif method == 'tools/call':
-                tool_name = params.get('name')
-                arguments = params.get('arguments', {})
-                result = await session.call_tool(tool_name, arguments)
-                # Convert content to dict
-                return [content.model_dump(mode='json', exclude_none=True) for content in result.content]
-            elif method == 'resources/list':
-                result = await session.list_resources()
-                # Convert resources to dict
-                return [resource.model_dump(mode='json', exclude_none=True) for resource in result.resources]
-            elif method == 'resources/read':
-                uri = params.get('uri')
-                result = await session.read_resource(uri)
-                # Convert contents to dict
-                return [content.model_dump(mode='json', exclude_none=True) for content in result.contents]
-            elif method == 'prompts/list':
-                result = await session.list_prompts()
-                # Convert prompts to dict
-                return [prompt.model_dump(mode='json', exclude_none=True) for prompt in result.prompts]
-            elif method == 'prompts/get':
-                prompt_name = params.get('name')
-                arguments = params.get('arguments', {})
-                result = await session.get_prompt(prompt_name, arguments)
-                # Convert messages to dict
-                return [message.model_dump(mode='json', exclude_none=True) for message in result.messages]
-            else:
-                raise ValueError(f"Unsupported method: {method}")
+    # Create httpx client with custom headers if provided
+    import httpx
+    http_client = None
+    if headers:
+        http_client = httpx.AsyncClient(headers=headers)
+    
+    try:
+        async with streamable_http_client(base_url, http_client=http_client) as (read, write, get_session_id):
+            async with ClientSession(read, write) as session:
+                # Initialize the session
+                init_result = await session.initialize()
+                
+                if verbose:
+                    click.echo("=== MCP Initialization ===", err=True)
+                    click.echo(f"Protocol Version: {init_result.protocolVersion}", err=True)
+                    click.echo(f"Server: {init_result.serverInfo.name} {init_result.serverInfo.version}", err=True)
+                    click.echo("", err=True)
+                
+                # Route to appropriate SDK method
+                if method == 'tools/list':
+                    result = await session.list_tools()
+                    # Convert pydantic models to dict
+                    return [tool.model_dump(mode='json', exclude_none=True) for tool in result.tools]
+                elif method == 'tools/call':
+                    tool_name = params.get('name')
+                    arguments = params.get('arguments', {})
+                    result = await session.call_tool(tool_name, arguments)
+                    # Convert content to dict
+                    return [content.model_dump(mode='json', exclude_none=True) for content in result.content]
+                elif method == 'resources/list':
+                    result = await session.list_resources()
+                    # Convert resources to dict
+                    return [resource.model_dump(mode='json', exclude_none=True) for resource in result.resources]
+                elif method == 'resources/read':
+                    uri = params.get('uri')
+                    result = await session.read_resource(uri)
+                    # Convert contents to dict
+                    return [content.model_dump(mode='json', exclude_none=True) for content in result.contents]
+                elif method == 'prompts/list':
+                    result = await session.list_prompts()
+                    # Convert prompts to dict
+                    return [prompt.model_dump(mode='json', exclude_none=True) for prompt in result.prompts]
+                elif method == 'prompts/get':
+                    prompt_name = params.get('name')
+                    arguments = params.get('arguments', {})
+                    result = await session.get_prompt(prompt_name, arguments)
+                    # Convert messages to dict
+                    return [message.model_dump(mode='json', exclude_none=True) for message in result.messages]
+                else:
+                    raise ValueError(f"Unsupported method: {method}")
+    finally:
+        # Clean up the http_client if we created one
+        if http_client is not None:
+            await http_client.aclose()
 
 
 
@@ -409,11 +435,11 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
         # Map virtual path to method and params
         method, params = map_virtual_path_to_method(virtual_path, data)
         
-        # Parse headers (note: currently unused by MCP SDK but parsed for future compatibility)
+        # Parse headers for authentication and custom HTTP headers
         headers = parse_headers(header_flags) if header_flags else {}
         
         # Make the MCP request using SDK (async)
-        result = asyncio.run(make_mcp_request(base_url, method, params, verbose))
+        result = asyncio.run(make_mcp_request(base_url, method, params, headers, verbose))
         
         # Output the result
         click.echo(json.dumps(result, indent=2))
