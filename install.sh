@@ -104,11 +104,11 @@ fi
 cd "$TEMP_DIR"
 
 # Download the wheel file from the latest release
-WHEEL_URL="https://github.com/turlockmike/murl/releases/download/v${LATEST_RELEASE}/murl-${LATEST_RELEASE}-py3-none-any.whl"
+WHEEL_URL="https://github.com/turlockmike/murl/releases/download/v${LATEST_RELEASE}/mcp_curl-${LATEST_RELEASE}-py3-none-any.whl"
 
 echo -e "${GREEN}Downloading from: $WHEEL_URL${NC}"
 
-if ! curl -fL -o "murl-${LATEST_RELEASE}-py3-none-any.whl" "$WHEEL_URL"; then
+if ! curl -fL -o "mcp_curl-${LATEST_RELEASE}-py3-none-any.whl" "$WHEEL_URL"; then
     echo -e "${RED}Error: Failed to download release${NC}"
     echo "URL: $WHEEL_URL"
     echo "This might mean the release doesn't have the expected wheel file."
@@ -120,11 +120,11 @@ echo -e "${GREEN}Installing murl from GitHub release...${NC}"
 # Install murl
 if [[ "$EUID" -eq 0 ]]; then
     # Running as root
-    $PYTHON_CMD -m pip install "murl-${LATEST_RELEASE}-py3-none-any.whl"
+    $PYTHON_CMD -m pip install "mcp_curl-${LATEST_RELEASE}-py3-none-any.whl"
     echo -e "${GREEN}✓ murl installed successfully${NC}"
 else
     # Running as user - try with --user flag
-    if $PYTHON_CMD -m pip install --user "murl-${LATEST_RELEASE}-py3-none-any.whl"; then
+    if $PYTHON_CMD -m pip install --user "mcp_curl-${LATEST_RELEASE}-py3-none-any.whl"; then
         echo -e "${GREEN}✓ murl installed successfully${NC}"
         
         # Check if user's local bin is in PATH
@@ -140,7 +140,7 @@ else
         # If --user fails, try with sudo
         echo -e "${YELLOW}User installation failed. Trying with sudo...${NC}"
         if command -v sudo &> /dev/null; then
-            sudo $PYTHON_CMD -m pip install "murl-${LATEST_RELEASE}-py3-none-any.whl"
+            sudo $PYTHON_CMD -m pip install "mcp_curl-${LATEST_RELEASE}-py3-none-any.whl"
             echo -e "${GREEN}✓ murl installed successfully${NC}"
         else
             echo -e "${RED}Error: Cannot install murl. Please run as root or install pip for your user.${NC}"
