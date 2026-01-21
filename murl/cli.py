@@ -3,11 +3,19 @@
 import json
 import re
 import sys
-from typing import Dict, Any, Tuple
+import time
+from typing import Dict, Any, Tuple, Optional
 
 import click
 import requests
 from murl import __version__
+
+
+# Constants for session-based SSE
+SSE_CONNECTION_TIMEOUT = 30  # Timeout for establishing SSE connection
+SSE_POST_TIMEOUT = 10  # Timeout for POST request to session endpoint
+SSE_READ_TIMEOUT = 10  # Timeout for reading response from SSE stream
+SSE_LOG_TRUNCATE_LENGTH = 100  # Max characters to show in verbose SSE logs
 
 
 def parse_url(full_url: str) -> Tuple[str, str]:
@@ -202,6 +210,144 @@ def parse_headers(header_flags: Tuple[str, ...]) -> Dict[str, str]:
     return headers
 
 
+def try_session_based_sse_request(
+    base_url: str,
+    jsonrpc_request: Dict[str, Any],
+    headers: Dict[str, str],
+    verbose: bool
+) -> Optional[Dict[str, Any]]:
+    """Try to make a session-based SSE request (for mcp-proxy compatibility).
+    
+    This handles the mcp-proxy session-based SSE workflow:
+    1. Connect to SSE endpoint to get session ID
+    2. POST request to session-specific endpoint
+    3. Read response from SSE stream
+    
+    Args:
+        base_url: The base URL of the server
+        jsonrpc_request: The JSON-RPC request to send
+        headers: HTTP headers
+        verbose: Whether to print verbose output
+        
+    Returns:
+        The response data if successful, None if session-based SSE not supported
+    """
+    try:
+        # Try to connect to SSE endpoint to establish session
+        sse_url = f"{base_url}/sse"
+        
+        if verbose:
+            click.echo("=== Attempting Session-Based SSE ===", err=True)
+            click.echo(f"Connecting to: {sse_url}", err=True)
+        
+        # Connect to SSE endpoint with streaming - keep connection alive
+        sse_response = requests.get(
+            sse_url,
+            headers={'Accept': 'text/event-stream'},
+            stream=True,
+            timeout=SSE_CONNECTION_TIMEOUT
+        )
+        
+        if sse_response.status_code != 200:
+            return None
+        
+        # Parse SSE stream to get session endpoint
+        session_endpoint = None
+        lines_iter = sse_response.iter_lines(decode_unicode=True)
+        
+        # Read initial lines to get session endpoint
+        for line in lines_iter:
+            if not line:
+                continue
+            
+            # Look for event: endpoint line followed by data: line
+            if line.startswith('event: endpoint'):
+                continue
+            elif line.startswith('data: '):
+                endpoint_path = line[6:].strip()  # Remove 'data: ' prefix
+                if endpoint_path.startswith('/'):
+                    session_endpoint = f"{base_url}{endpoint_path}"
+                    break
+        
+        if not session_endpoint:
+            if verbose:
+                click.echo("No session endpoint found in SSE stream", err=True)
+            sse_response.close()
+            return None
+        
+        if verbose:
+            click.echo(f"Got session endpoint: {session_endpoint}", err=True)
+            click.echo("Sending request to session endpoint...", err=True)
+        
+        # Now POST the actual request to the session endpoint
+        post_response = requests.post(
+            session_endpoint,
+            json=jsonrpc_request,
+            headers={'Content-Type': 'application/json'},
+            timeout=SSE_POST_TIMEOUT
+        )
+        
+        # 202 Accepted means response will come via SSE stream
+        # 200 OK might mean immediate response
+        if post_response.status_code not in (200, 202):
+            if verbose:
+                click.echo(f"Session POST failed: {post_response.status_code}", err=True)
+            sse_response.close()
+            return None
+        
+        # Continue reading from the SSE stream for the response
+        request_id = jsonrpc_request.get('id')
+        response_data = None
+        
+        # Set a timeout for reading the response
+        start_time = time.time()
+        
+        if verbose:
+            click.echo("Reading response from SSE stream...", err=True)
+        
+        # Continue reading from the same iterator
+        for line in lines_iter:
+            if time.time() - start_time > SSE_READ_TIMEOUT:
+                if verbose:
+                    click.echo("Timeout waiting for response in SSE stream", err=True)
+                break
+            
+            if not line:
+                continue
+            
+            if verbose and line:
+                # Truncate long lines for readability
+                display_line = line[:SSE_LOG_TRUNCATE_LENGTH] if len(line) > SSE_LOG_TRUNCATE_LENGTH else line
+                click.echo(f"SSE line: {display_line}", err=True)
+            
+            if line.startswith('data: '):
+                data_str = line[6:]  # Remove 'data: ' prefix
+                try:
+                    message = json.loads(data_str)
+                    # Look for JSON-RPC response matching our request ID
+                    if isinstance(message, dict) and message.get('id') == request_id:
+                        response_data = message
+                        if verbose:
+                            click.echo("Found matching response!", err=True)
+                        break
+                except json.JSONDecodeError:
+                    continue
+        
+        # Close the SSE connection
+        sse_response.close()
+        
+        return response_data
+        
+    except requests.exceptions.RequestException:
+        if verbose:
+            click.echo("Session-based SSE connection failed", err=True)
+        return None
+    except Exception as e:
+        if verbose:
+            click.echo(f"Session-based SSE error: {e}", err=True)
+        return None
+
+
 @click.command()
 @click.argument('url')
 @click.option('-d', '--data', 'data_flags', multiple=True, 
@@ -248,6 +394,10 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
         # Parse headers
         headers = parse_headers(header_flags) if header_flags else {}
         headers['Content-Type'] = 'application/json'
+        # Support Streamable HTTP transport (MCP protocol)
+        # This allows murl to work with both regular HTTP JSON-RPC servers
+        # and MCP servers using Streamable HTTP transport (like mcp-proxy)
+        headers['Accept'] = 'application/json, text/event-stream'
         
         # Verbose output
         if verbose:
@@ -259,28 +409,69 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
             click.echo(base_url, err=True)
             click.echo("", err=True)
         
-        # Make HTTP POST request
-        response = requests.post(
-            base_url,
-            json=jsonrpc_request,
-            headers=headers,
-            timeout=30
+        # Try session-based SSE first (for mcp-proxy compatibility)
+        response_data = try_session_based_sse_request(
+            base_url, jsonrpc_request, headers, verbose
         )
         
-        # Verbose response headers
-        if verbose:
-            click.echo("=== HTTP Response Headers ===", err=True)
-            click.echo(json.dumps(dict(response.headers), indent=2), err=True)
-            click.echo("", err=True)
-        
-        # Parse response
-        try:
-            response_data = response.json()
-        except json.JSONDecodeError:
-            click.echo(f"Error: Invalid JSON response from server", err=True)
-            click.echo(f"Status Code: {response.status_code}", err=True)
-            click.echo(f"Response: {response.text}", err=True)
-            sys.exit(1)
+        if response_data is not None:
+            # Successfully got response via session-based SSE
+            if verbose:
+                click.echo("=== Response via Session-Based SSE ===", err=True)
+                click.echo("", err=True)
+        else:
+            # Fall back to regular HTTP POST request
+            if verbose:
+                click.echo("=== Using Regular HTTP POST ===", err=True)
+            
+            response = requests.post(
+                base_url,
+                json=jsonrpc_request,
+                headers=headers,
+                timeout=30
+            )
+            
+            # Verbose response headers
+            if verbose:
+                click.echo("=== HTTP Response Headers ===", err=True)
+                click.echo(json.dumps(dict(response.headers), indent=2), err=True)
+                click.echo("", err=True)
+            
+            # Parse response
+            content_type = response.headers.get('Content-Type', '')
+            request_id = jsonrpc_request.get('id')
+            
+            # Handle SSE response (Streamable HTTP transport)
+            if 'text/event-stream' in content_type:
+                # Parse SSE stream and extract JSON-RPC messages
+                response_data = None
+                for line in response.text.split('\n'):
+                    line = line.strip()
+                    if line.startswith('data: '):
+                        data_str = line[6:]  # Remove 'data: ' prefix
+                        try:
+                            message = json.loads(data_str)
+                            # Look for JSON-RPC response matching our request ID
+                            if isinstance(message, dict) and message.get('id') == request_id:
+                                # Found a matching response, use it
+                                response_data = message
+                                break  # Use first matching response
+                        except json.JSONDecodeError:
+                            continue
+                
+                if response_data is None:
+                    click.echo(f"Error: No valid JSON-RPC response in SSE stream", err=True)
+                    click.echo(f"Response: {response.text}", err=True)
+                    sys.exit(1)
+            else:
+                # Regular JSON response
+                try:
+                    response_data = response.json()
+                except json.JSONDecodeError:
+                    click.echo(f"Error: Invalid JSON response from server", err=True)
+                    click.echo(f"Status Code: {response.status_code}", err=True)
+                    click.echo(f"Response: {response.text}", err=True)
+                    sys.exit(1)
         
         # Check for JSON-RPC error
         if 'error' in response_data:

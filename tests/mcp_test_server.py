@@ -191,5 +191,7 @@ def run_server(port: int = 8765):
 
 
 if __name__ == "__main__":
-    run_server()
+    import os
+    port = int(os.environ.get('TEST_PORT', 8765))
+    run_server(port)
 
