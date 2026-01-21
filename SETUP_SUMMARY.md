@@ -8,10 +8,11 @@ This document provides a quick overview of the publishing setup that has been im
 - **Workflow File**: `.github/workflows/publish.yml`
 - **Trigger**: Git tags matching `v*.*.*` pattern (e.g., `v0.2.0`)
 - **Features**:
+  - Runs tests on all supported Python versions before publishing
   - Automatic version validation (ensures tag matches `pyproject.toml`)
   - Package building and validation with `twine check`
   - Publishing to PyPI using trusted publishing (no token needed!)
-  - Fallback to API token if needed
+  - Alternative: API token (requires manual configuration)
 
 ### 2. GitHub Releases
 - Automatically creates GitHub releases when tags are pushed
@@ -60,7 +61,7 @@ If you prefer using an API token instead:
 5. Add a new repository secret:
    - **Name**: `PYPI_API_TOKEN`
    - **Value**: (paste your PyPI token)
-6. In `.github/workflows/publish.yml`, uncomment line 52:
+6. In `.github/workflows/publish.yml`, uncomment line 79:
    ```yaml
    password: ${{ secrets.PYPI_API_TOKEN }}
    ```
@@ -102,10 +103,10 @@ git push origin v0.2.0
 
 ## 🧪 Testing the Workflow
 
-You can test the workflow without publishing by:
+You can safely test the workflow without publishing by:
 
 1. Creating a test tag: `git tag v0.1.0-test && git push origin v0.1.0-test`
-2. The workflow will run but you can cancel before it publishes
+2. The workflow will run, but the version validation will fail because `v0.1.0-test` does not match `0.1.0` in `pyproject.toml`, so it will not proceed to publish (this acts as a safety check)
 3. Delete the tag: `git push origin --delete v0.1.0-test && git tag -d v0.1.0-test`
 
 ## 📊 Version Numbering
@@ -156,4 +157,4 @@ Refer to:
 
 ---
 
-**Security Summary**: CodeQL analysis passed with no security vulnerabilities detected.
+**Security Summary**: No automated security scanning is currently configured. Consider adding GitHub CodeQL or other security scanning tools to the repository for continuous vulnerability detection.

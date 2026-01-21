@@ -12,10 +12,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Detect OS and architecture
-OS="$(uname -s)"
-ARCH="$(uname -m)"
-
 echo -e "${GREEN}Installing murl...${NC}"
 
 # Check if Python is installed
@@ -37,7 +33,7 @@ PYTHON_VERSION=$($PYTHON_CMD -c 'import sys; print(".".join(map(str, sys.version
 PYTHON_MAJOR=$($PYTHON_CMD -c 'import sys; print(sys.version_info.major)')
 PYTHON_MINOR=$($PYTHON_CMD -c 'import sys; print(sys.version_info.minor)')
 
-if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 10 ]); then
+if [[ "$PYTHON_MAJOR" -lt 3 ]] || [[ "$PYTHON_MAJOR" -eq 3 && "$PYTHON_MINOR" -lt 10 ]]; then
     echo -e "${RED}Error: Python 3.10 or later is required.${NC}"
     echo "Found: Python $PYTHON_VERSION"
     exit 1
@@ -58,9 +54,10 @@ fi
 echo -e "${GREEN}Installing murl via pip...${NC}"
 
 # Install murl
-if [ "$EUID" -eq 0 ]; then
+if [[ "$EUID" -eq 0 ]]; then
     # Running as root
     $PYTHON_CMD -m pip install --upgrade murl
+    echo -e "${GREEN}✓ murl installed successfully${NC}"
 else
     # Running as user - try with --user flag
     if $PYTHON_CMD -m pip install --user --upgrade murl; then
@@ -68,7 +65,7 @@ else
         
         # Check if user's local bin is in PATH
         USER_BIN="$HOME/.local/bin"
-        if [ -d "$USER_BIN" ] && [[ ":$PATH:" != *":$USER_BIN:"* ]]; then
+        if [[ -d "$USER_BIN" && ":$PATH:" != *":$USER_BIN:"* ]]; then
             echo -e "${YELLOW}Warning: $USER_BIN is not in your PATH${NC}"
             echo "Add the following line to your ~/.bashrc, ~/.zshrc, or ~/.profile:"
             echo ""
@@ -80,6 +77,7 @@ else
         echo -e "${YELLOW}User installation failed. Trying with sudo...${NC}"
         if command -v sudo &> /dev/null; then
             sudo $PYTHON_CMD -m pip install --upgrade murl
+            echo -e "${GREEN}✓ murl installed successfully${NC}"
         else
             echo -e "${RED}Error: Cannot install murl. Please run as root or install pip for your user.${NC}"
             exit 1
