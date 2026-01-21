@@ -28,6 +28,11 @@ dependencies = [
     "requests>=2.31.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/turlockmike/murl"
+Repository = "https://github.com/turlockmike/murl"
+Issues = "https://github.com/turlockmike/murl/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
