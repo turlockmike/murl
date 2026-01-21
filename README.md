@@ -10,50 +10,44 @@ MCP (Model Context Protocol) is an open standard developed by Anthropic for AI m
 
 ## Quick Start
 
-### Option 1: Try with Public MCP Servers (No Setup Required)
+### Quick Local Setup with mcp-proxy
 
-Test murl immediately with public MCP servers:
+Get started with murl in minutes using a local MCP server:
 
 ```bash
-# Install murl
+# Step 1: Install murl
 curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
 # Or using pip: pip install mcp-curl
 
-# List available tools on the echo server
-murl https://echo.mcp.inevitable.fyi/mcp/tools
-
-# Call the echo tool with a message
-murl https://echo.mcp.inevitable.fyi/mcp/tools/echo -d message="Hello from murl!"
-
-# Try the everything server with multiple tools
-murl https://everything.mcp.inevitable.fyi/mcp/tools
-
-# Get current time from the time server
-murl https://time.mcp.inevitable.fyi/mcp/tools/get_current_time
-```
-
-**Available public test servers:**
-- Echo Server: `https://echo.mcp.inevitable.fyi/mcp` - Simple echo tool for testing
-- Everything Server: `https://everything.mcp.inevitable.fyi/mcp` - Multipurpose server with various capabilities
-- Time Server: `https://time.mcp.inevitable.fyi/mcp` - Time-related tools
-
-### Option 2: Quick Local Setup with mcp-proxy
-
-For testing local or stdio MCP servers:
-
-```bash
-# Install murl and mcp-proxy
-curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
+# Step 2: Install mcp-proxy to expose MCP servers over HTTP
 pip install mcp-proxy
-# Or install murl with pip: pip install mcp-curl mcp-proxy
 
-# Start a simple time server example
-# (You'll need to have an MCP server to proxy - see the full documentation below)
+# Step 3: Start a local time server example (in one terminal)
 mcp-proxy --port 3000 uvx mcp-server-time
 
-# In another terminal, test with murl
+# Step 4: Test with murl (in another terminal)
+# List available tools
 murl http://localhost:3000/tools
+
+# Call the get_current_time tool
 murl http://localhost:3000/tools/get_current_time
+
+# Call with a timezone argument
+murl http://localhost:3000/tools/get_current_time -d timezone=America/New_York
+```
+
+**What's happening:**
+- `mcp-proxy` wraps any stdio-based MCP server and exposes it over HTTP
+- `uvx mcp-server-time` is a simple MCP server that provides time-related tools
+- `murl` connects to the HTTP endpoint and makes MCP requests
+
+**Try other MCP servers:**
+```bash
+# Filesystem server (access files)
+mcp-proxy --port 3001 uvx mcp-server-filesystem /path/to/directory
+
+# Sequential thinking server
+mcp-proxy --port 3002 npx -y @modelcontextprotocol/server-sequential-thinking
 ```
 
 ## Installation
