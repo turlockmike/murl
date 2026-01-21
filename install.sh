@@ -47,8 +47,12 @@ echo -e "${GREEN}✓ Python $PYTHON_VERSION detected${NC}"
 
 # Check if pip is installed
 if ! $PYTHON_CMD -m pip --version &> /dev/null; then
-    echo -e "${YELLOW}Warning: pip is not installed. Installing pip...${NC}"
-    curl -sSL https://bootstrap.pypa.io/get-pip.py | $PYTHON_CMD
+    echo -e "${YELLOW}Warning: pip is not installed.${NC}"
+    echo "Please install pip using your system package manager:"
+    echo "  - Ubuntu/Debian: sudo apt-get install python3-pip"
+    echo "  - Fedora/RHEL: sudo dnf install python3-pip"
+    echo "  - macOS: python3 -m ensurepip --upgrade"
+    exit 1
 fi
 
 echo -e "${GREEN}Installing murl via pip...${NC}"
@@ -85,7 +89,7 @@ fi
 
 # Verify installation
 if command -v murl &> /dev/null; then
-    VERSION=$(murl --version 2>&1 || echo "unknown")
+    VERSION=$(murl --version 2>&1 | head -n1 || echo "unknown")
     echo -e "${GREEN}✓ Installation complete!${NC}"
     echo -e "murl version: $VERSION"
     echo ""

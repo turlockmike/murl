@@ -187,7 +187,22 @@ jobs:
           echo "No changes to formula"
         else
           git commit -m "Update murl to ${VERSION}"
-          git push origin main || git push origin master || {
+          
+          # Detect the default branch
+          DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+          if [ -z "$DEFAULT_BRANCH" ]; then
+            # Fallback: try common branch names
+            if git show-ref --verify --quiet refs/heads/main; then
+              DEFAULT_BRANCH="main"
+            elif git show-ref --verify --quiet refs/heads/master; then
+              DEFAULT_BRANCH="master"
+            else
+              echo "Could not determine default branch"
+              exit 1
+            fi
+          fi
+          
+          git push origin "$DEFAULT_BRANCH" || {
             echo "Failed to push to tap repository"
             exit 1
           }
