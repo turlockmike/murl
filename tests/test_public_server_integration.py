@@ -6,6 +6,8 @@ They can be skipped in CI if the servers are unreachable.
 NOTE: Currently, there are no known working public MCP servers available for testing.
 If you know of a public MCP server, you can add tests here following this pattern:
 
+Example:
+--------
 import json
 import pytest
 import requests
@@ -13,7 +15,7 @@ from click.testing import CliRunner
 from murl.cli import main
 
 # Example server configuration
-# PUBLIC_SERVER_URL = "https://example.com/mcp"
+PUBLIC_SERVER_URL = "https://example.com/mcp"
 
 def is_server_reachable(url: str) -> bool:
     '''Check if the server is reachable.'''
