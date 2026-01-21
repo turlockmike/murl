@@ -1,6 +1,7 @@
 """CLI entry point for murl."""
 
 import json
+import os
 import re
 import sys
 import time
@@ -487,6 +488,27 @@ def try_session_based_sse_request(
         return None
 
 
+def print_version(ctx, param, value):
+    """Print detailed version information."""
+    if not value or ctx.resilient_parsing:
+        return
+    
+    # Get Python version
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    
+    # Try to get installation path
+    try:
+        import murl
+        install_path = os.path.dirname(os.path.abspath(murl.__file__))
+    except Exception:
+        install_path = "unknown"
+    
+    click.echo(f"murl version {__version__}")
+    click.echo(f"Python {python_version}")
+    click.echo(f"Installation path: {install_path}")
+    ctx.exit()
+
+
 @click.command()
 @click.argument('url')
 @click.option('-d', '--data', 'data_flags', multiple=True, 
@@ -495,7 +517,8 @@ def try_session_based_sse_request(
               help='Add custom HTTP header. Format: "Key: Value"')
 @click.option('-v', '--verbose', is_flag=True,
               help='Enable verbose output (prints JSON-RPC payload and HTTP headers to stderr)')
-@click.version_option(version=__version__)
+@click.option('--version', is_flag=True, callback=print_version, expose_value=False, is_eager=True,
+              help='Show detailed version information')
 def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], verbose: bool):
     """murl - MCP Curl: A curl-like CLI tool for Model Context Protocol (MCP) servers.
 

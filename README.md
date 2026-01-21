@@ -66,6 +66,16 @@ curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | b
 
 This will automatically download and install murl from source.
 
+### Upgrade
+
+To upgrade murl to the latest version:
+
+```bash
+murl-upgrade
+```
+
+This command downloads and runs the installation script to update murl to the latest release from GitHub.
+
 ### From Source
 
 ```bash
@@ -91,8 +101,13 @@ Where `<url>` is the MCP server endpoint with a virtual path (e.g., `http://loca
 - `-d, --data <key=value>` - Add data to the request. Can be used multiple times.
 - `-H, --header <key: value>` - Add custom HTTP headers (e.g., for authentication).
 - `-v, --verbose` - Enable verbose output (prints request/response details to stderr).
-- `--version` - Show version information.
+- `--version` - Show detailed version information (includes Python version and installation path).
 - `--help` - Show help message.
+
+### Commands
+
+- `murl <url> [options]` - Send a request to an MCP server
+- `murl-upgrade` - Upgrade murl to the latest version from GitHub releases
 
 ### Examples
 
