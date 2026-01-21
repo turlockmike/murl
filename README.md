@@ -17,12 +17,12 @@ Try murl immediately with a local test server:
 curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
 
 # In a separate terminal, start a test MCP server (requires Node.js)
-npx -y mcp-proxy -- npx -y @modelcontextprotocol/server-everything
+npx -y mcp-proxy --port 3000 -- npx -y @modelcontextprotocol/server-everything
 
 # Now test murl with the server
-murl http://localhost:8080/tools
-murl http://localhost:8080/resources
-murl http://localhost:8080/prompts
+murl http://localhost:3000/tools
+murl http://localhost:3000/resources
+murl http://localhost:3000/prompts
 ```
 
 This uses Anthropic's reference "everything server" which provides example tools, resources, and prompts for testing.
