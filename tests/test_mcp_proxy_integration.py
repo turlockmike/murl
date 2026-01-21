@@ -114,7 +114,10 @@ def test_mcp_proxy_call_tool(mcp_proxy_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["message"] == "Hello from mcp-proxy"
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["type"] == "text"
+    assert output[0]["text"] == "Hello from mcp-proxy"
 
 
 def test_mcp_proxy_multiple_args(mcp_proxy_server):
@@ -133,9 +136,10 @@ def test_mcp_proxy_multiple_args(mcp_proxy_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["city"] == "Tokyo"
-    assert output["metric"] is True
-    assert "temperature" in output
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["type"] == "text"
+    assert "Tokyo" in output[0]["text"]
 
 
 def test_mcp_proxy_list_resources(mcp_proxy_server):
@@ -170,8 +174,10 @@ def test_mcp_proxy_read_resource(mcp_proxy_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["uri"] == "file:///data/file.txt"
-    assert "content" in output
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["uri"] == "file:///data/file.txt"
+    assert "text" in output[0]
 
 
 def test_mcp_proxy_list_prompts(mcp_proxy_server):
@@ -206,8 +212,10 @@ def test_mcp_proxy_get_prompt(mcp_proxy_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["name"] == "greeting"
-    assert "User" in output["prompt"]
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["role"] == "user"
+    assert "User" in output[0]["content"]["text"]
 
 
 def test_mcp_proxy_with_json_data(mcp_proxy_server):
@@ -225,7 +233,10 @@ def test_mcp_proxy_with_json_data(mcp_proxy_server):
     
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["message"] == "complex data"
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert output[0]["type"] == "text"
+    assert output[0]["text"] == "complex data"
 
 
 def test_mcp_proxy_verbose_mode(mcp_proxy_server):
