@@ -1,7 +1,9 @@
 """CLI entry point for murl."""
 
 import json
+import os
 import re
+import subprocess
 import sys
 import time
 from typing import Dict, Any, Tuple, Optional
@@ -16,6 +18,62 @@ SSE_CONNECTION_TIMEOUT = 30  # Timeout for establishing SSE connection
 SSE_POST_TIMEOUT = 10  # Timeout for POST request to session endpoint
 SSE_READ_TIMEOUT = 10  # Timeout for reading response from SSE stream
 SSE_LOG_TRUNCATE_LENGTH = 100  # Max characters to show in verbose SSE logs
+
+
+def upgrade_murl():
+    """Upgrade murl to the latest version from GitHub."""
+    click.echo("Checking for updates...")
+    
+    try:
+        # Check latest version from GitHub
+        response = requests.get(
+            "https://api.github.com/repos/turlockmike/murl/releases/latest",
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            latest_version = response.json()["tag_name"].lstrip('v')
+            current_version = __version__
+            
+            click.echo(f"Current version: {current_version}")
+            click.echo(f"Latest version:  {latest_version}")
+            
+            if latest_version == current_version:
+                click.echo("✓ You are already using the latest version!")
+                return
+            
+            click.echo(f"\nA new version is available: {latest_version}")
+        else:
+            click.echo("Could not check for updates. Proceeding with upgrade...")
+    except Exception as e:
+        click.echo(f"Warning: Could not check for updates: {e}")
+        click.echo("Proceeding with upgrade anyway...")
+    
+    # Run the install script
+    click.echo("\nUpgrading murl...")
+    install_cmd = "curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash"
+    
+    try:
+        # Use shell=True to properly execute the pipe
+        result = subprocess.run(
+            install_cmd,
+            shell=True,
+            capture_output=False,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            click.echo("\n✓ Upgrade completed successfully!")
+            click.echo("Please restart your terminal or run 'hash -r' to use the new version.")
+        else:
+            click.echo("\n✗ Upgrade failed. Please try manually:")
+            click.echo("  curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash")
+            sys.exit(1)
+    except Exception as e:
+        click.echo(f"\n✗ Upgrade failed: {e}")
+        click.echo("Please try manually:")
+        click.echo("  curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash")
+        sys.exit(1)
 
 
 def parse_url(full_url: str) -> Tuple[str, str]:
@@ -358,15 +416,17 @@ def try_session_based_sse_request(
 
 
 @click.command()
-@click.argument('url')
+@click.argument('url', required=False)
 @click.option('-d', '--data', 'data_flags', multiple=True, 
               help='Add data to the request. Format: key=value or JSON string')
 @click.option('-H', '--header', 'header_flags', multiple=True,
               help='Add custom HTTP header. Format: "Key: Value"')
 @click.option('-v', '--verbose', is_flag=True,
               help='Enable verbose output (prints JSON-RPC payload and HTTP headers to stderr)')
-@click.version_option(version=__version__)
-def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], verbose: bool):
+@click.option('--upgrade', is_flag=True,
+              help='Upgrade murl to the latest version')
+@click.version_option(version=__version__, prog_name='murl')
+def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], verbose: bool, upgrade: bool):
     """murl - MCP Curl: A curl-like CLI tool for Model Context Protocol (MCP) servers.
 
     MCP (Model Context Protocol) is an open standard for AI models to access
@@ -389,7 +449,21 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
         
         # Add authorization header
         murl http://localhost:3000/prompts -H "Authorization: Bearer token123"
+        
+        # Upgrade to the latest version
+        murl --upgrade
     """
+    # Handle upgrade flag
+    if upgrade:
+        upgrade_murl()
+        return
+    
+    # URL is required if not upgrading
+    if not url:
+        click.echo("Error: Missing argument 'URL'.", err=True)
+        click.echo("Try 'murl --help' for help.", err=True)
+        sys.exit(1)
+    
     try:
         # Parse URL
         base_url, virtual_path = parse_url(url)
