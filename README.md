@@ -16,8 +16,8 @@ Test murl immediately with public MCP servers:
 
 ```bash
 # Install murl
-pip install mcp-curl
-# Or using install script: curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
+# Or using pip: pip install mcp-curl
 
 # List available tools on the echo server
 murl https://echo.mcp.inevitable.fyi/mcp/tools
@@ -43,8 +43,9 @@ For testing local or stdio MCP servers:
 
 ```bash
 # Install murl and mcp-proxy
-pip install mcp-curl mcp-proxy
-# Or install murl with script: curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
+pip install mcp-proxy
+# Or install murl with pip: pip install mcp-curl mcp-proxy
 
 # Start a simple time server example
 # (You'll need to have an MCP server to proxy - see the full documentation below)
@@ -57,9 +58,19 @@ murl http://localhost:3000/tools/get_current_time
 
 ## Installation
 
-### Using pip (Recommended)
+### Quick Install (Recommended)
 
-Install murl directly from PyPI:
+Install murl with a single command:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
+```
+
+This will automatically download and install murl from source.
+
+### Using pip
+
+Install murl from PyPI:
 
 ```bash
 pip install mcp-curl
@@ -70,16 +81,6 @@ To upgrade to the latest version:
 ```bash
 pip install --upgrade mcp-curl
 ```
-
-### Quick Install Script
-
-Install murl with a single command:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
-```
-
-This will automatically download and install murl from source.
 
 ### Upgrade
 
