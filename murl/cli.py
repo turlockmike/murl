@@ -334,17 +334,17 @@ def run_upgrade(ctx, param, value):
             check=False,
             timeout=300  # 5 minute timeout
         )
+        
+        if result.returncode == 0:
+            click.echo(result.stdout)
+            click.echo("✓ Upgrade complete!")
+            ctx.exit(0)
+        else:
+            click.echo(f"Error during upgrade: {result.stderr}", err=True)
+            click.echo("Please try upgrading manually with: pip install --upgrade mcp-curl", err=True)
+            ctx.exit(1)
     except subprocess.TimeoutExpired:
         click.echo("Error: Upgrade timed out after 5 minutes.", err=True)
-        click.echo("Please try upgrading manually with: pip install --upgrade mcp-curl", err=True)
-        ctx.exit(1)
-    
-    if result.returncode == 0:
-        click.echo(result.stdout)
-        click.echo("✓ Upgrade complete!")
-        ctx.exit(0)
-    else:
-        click.echo(f"Error during upgrade: {result.stderr}", err=True)
         click.echo("Please try upgrading manually with: pip install --upgrade mcp-curl", err=True)
         ctx.exit(1)
 
