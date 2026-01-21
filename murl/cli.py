@@ -42,17 +42,13 @@ def detect_installation_method() -> str:
             if 'Editable project location:' in output:
                 return 'editable'
             
-            # Check if installed via pipx
-            if 'pipx' in output.lower():
-                return 'pipx'
-        
-        # If pip show doesn't work, fall back to path-based detection
-        import murl
-        install_path = os.path.dirname(os.path.abspath(murl.__file__))
-        
-        # Check if installed via pipx (typically in ~/.local/pipx/venvs/)
-        if 'pipx' in install_path:
-            return 'pipx'
+            # Check if installed via pipx by looking at Location field
+            # pipx typically installs in ~/.local/pipx/venvs/ or similar
+            location_match = re.search(r'Location: (.+)', output)
+            if location_match:
+                location = location_match.group(1)
+                if 'pipx' in location.lower():
+                    return 'pipx'
         
         # Default to pip
         return 'pip'
@@ -494,8 +490,9 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
             
             # Try to get install path
             try:
-                import murl
-                install_path = os.path.dirname(os.path.abspath(murl.__file__))
+                install_path = os.path.dirname(os.path.abspath(__file__))
+                # Go up one level to get the package directory
+                install_path = os.path.dirname(install_path)
                 click.echo(f"Install path: {install_path}")
             except Exception:
                 pass
