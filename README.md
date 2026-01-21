@@ -271,6 +271,13 @@ For more information about MCP transport protocols, see the [official MCP docume
 
 MIT License - see LICENSE file for details
 
-## Publishing
+## Releasing
 
-For maintainers: See [PUBLISHING.md](PUBLISHING.md) for instructions on publishing new versions to PyPI.
+For maintainers: To create a new release, update the version in `pyproject.toml` and `murl/__init__.py`, then create and push a git tag:
+
+```bash
+git tag v0.2.1
+git push origin v0.2.1
+```
+
+This will automatically trigger a GitHub Actions workflow that builds the package and creates a GitHub release with the artifacts.

@@ -61,17 +61,38 @@ if ! $PYTHON_CMD -m pip --version &> /dev/null; then
     exit 1
 fi
 
-# Check if git is installed
-if ! command -v git &> /dev/null; then
-    echo -e "${RED}Error: git is required but not installed.${NC}"
-    echo "Please install git using your system package manager:"
-    echo "  - Ubuntu/Debian: sudo apt-get install git"
-    echo "  - Fedora/RHEL: sudo dnf install git"
-    echo "  - macOS: xcode-select --install"
+# Check if curl is installed
+if ! command -v curl &> /dev/null; then
+    echo -e "${RED}Error: curl is required but not installed.${NC}"
+    echo "Please install curl using your system package manager:"
+    echo "  - Ubuntu/Debian: sudo apt-get install curl"
+    echo "  - Fedora/RHEL: sudo dnf install curl"
+    echo "  - macOS: curl is pre-installed"
     exit 1
 fi
 
-echo -e "${GREEN}Downloading murl from GitHub...${NC}"
+echo -e "${GREEN}Downloading murl from GitHub releases...${NC}"
+
+# Get the latest release version using GitHub API
+GITHUB_API_URL="https://api.github.com/repos/turlockmike/murl/releases/latest"
+RELEASE_JSON=$(curl -fsSL "$GITHUB_API_URL" 2>&1)
+CURL_EXIT_CODE=$?
+
+if [[ $CURL_EXIT_CODE -ne 0 ]]; then
+    echo -e "${RED}Error: Failed to fetch release information from GitHub API${NC}"
+    echo "Please check your internet connection and try again."
+    exit 1
+fi
+
+LATEST_RELEASE=$(echo "$RELEASE_JSON" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/' | head -n1)
+
+if [[ -z "$LATEST_RELEASE" ]]; then
+    echo -e "${RED}Error: Failed to parse latest release version${NC}"
+    echo "Please report this issue at https://github.com/turlockmike/murl/issues"
+    exit 1
+fi
+
+echo -e "${GREEN}Latest version: $LATEST_RELEASE${NC}"
 
 # Create temporary directory
 TEMP_DIR=$(mktemp -d)
@@ -82,24 +103,28 @@ fi
 
 cd "$TEMP_DIR"
 
-# Clone the repository
-if ! git clone --single-branch https://github.com/turlockmike/murl.git; then
-    echo -e "${RED}Error: Failed to clone repository${NC}"
+# Download the wheel file from the latest release
+WHEEL_URL="https://github.com/turlockmike/murl/releases/download/v${LATEST_RELEASE}/murl-${LATEST_RELEASE}-py3-none-any.whl"
+
+echo -e "${GREEN}Downloading from: $WHEEL_URL${NC}"
+
+if ! curl -fL -o "murl-${LATEST_RELEASE}-py3-none-any.whl" "$WHEEL_URL"; then
+    echo -e "${RED}Error: Failed to download release${NC}"
+    echo "URL: $WHEEL_URL"
+    echo "This might mean the release doesn't have the expected wheel file."
     exit 1
 fi
 
-cd murl
-
-echo -e "${GREEN}Installing murl from source...${NC}"
+echo -e "${GREEN}Installing murl from GitHub release...${NC}"
 
 # Install murl
 if [[ "$EUID" -eq 0 ]]; then
     # Running as root
-    $PYTHON_CMD -m pip install .
+    $PYTHON_CMD -m pip install "murl-${LATEST_RELEASE}-py3-none-any.whl"
     echo -e "${GREEN}✓ murl installed successfully${NC}"
 else
     # Running as user - try with --user flag
-    if $PYTHON_CMD -m pip install --user .; then
+    if $PYTHON_CMD -m pip install --user "murl-${LATEST_RELEASE}-py3-none-any.whl"; then
         echo -e "${GREEN}✓ murl installed successfully${NC}"
         
         # Check if user's local bin is in PATH
@@ -115,7 +140,7 @@ else
         # If --user fails, try with sudo
         echo -e "${YELLOW}User installation failed. Trying with sudo...${NC}"
         if command -v sudo &> /dev/null; then
-            sudo $PYTHON_CMD -m pip install .
+            sudo $PYTHON_CMD -m pip install "murl-${LATEST_RELEASE}-py3-none-any.whl"
             echo -e "${GREEN}✓ murl installed successfully${NC}"
         else
             echo -e "${RED}Error: Cannot install murl. Please run as root or install pip for your user.${NC}"
