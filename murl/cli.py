@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.parse
 from typing import Dict, Any, Tuple, Optional
 
 import click
@@ -462,7 +463,6 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
             exc_msg = str(exc)
             
             # Extract hostname from base_url for better error messages
-            import urllib.parse
             parsed_url = urllib.parse.urlparse(base_url)
             hostname = parsed_url.hostname or parsed_url.netloc
             
