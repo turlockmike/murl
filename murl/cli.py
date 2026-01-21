@@ -279,6 +279,7 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
         
         # Parse response
         content_type = response.headers.get('Content-Type', '')
+        request_id = jsonrpc_request.get('id')
         
         # Handle SSE response (Streamable HTTP transport)
         if 'text/event-stream' in content_type:
@@ -290,9 +291,11 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
                     data_str = line[6:]  # Remove 'data: ' prefix
                     try:
                         message = json.loads(data_str)
-                        # Take the last complete JSON-RPC message
-                        if 'id' in message and message.get('id') == jsonrpc_request.get('id'):
+                        # Look for JSON-RPC response matching our request ID
+                        if isinstance(message, dict) and message.get('id') == request_id:
+                            # Found a matching response, use it
                             response_data = message
+                            break  # Use first matching response
                     except json.JSONDecodeError:
                         continue
             
