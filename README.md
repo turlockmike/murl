@@ -203,9 +203,11 @@ pytest --cov=murl --cov-report=html
 
 ### Streamable HTTP Support
 
-As of the latest version, murl includes support for the MCP Streamable HTTP transport protocol:
+As of the latest version, murl includes comprehensive support for the MCP Streamable HTTP transport protocol:
 - Sends `Accept: application/json, text/event-stream` header
 - Handles both immediate JSON responses and Server-Sent Events (SSE) streams
+- **Supports session-based SSE** for compatibility with mcp-proxy
+- Automatically tries session-based SSE first, then falls back to regular HTTP POST
 - Compatible with MCP servers implementing the Streamable HTTP specification
 
 ### Direct HTTP MCP Servers
@@ -226,11 +228,42 @@ murl http://localhost:3000/resources
 murl http://localhost:3000/prompts/my_prompt -d arg1=value
 ```
 
-### Converting stdio MCP Servers to HTTP
+### Using murl with mcp-proxy
 
-Many MCP servers are implemented as stdio (standard input/output) programs. To use these with murl, you need to expose them via HTTP. The [mcp-proxy](https://github.com/sparfenyuk/mcp-proxy) tool can help with this, though there are some limitations:
+Many MCP servers are implemented as stdio (standard input/output) programs. To use these with murl, you can expose them via HTTP using [mcp-proxy](https://github.com/sparfenyuk/mcp-proxy):
 
-**Note**: mcp-proxy's SSE mode creates session-based endpoints that require maintaining a persistent connection, which is not compatible with murl's stateless request-response model. For best results, use MCP servers that directly implement HTTP transport or use alternative HTTP wrapper tools that support stateless Streamable HTTP.
+```bash
+# Install mcp-proxy
+pip install mcp-proxy
+
+# Start mcp-proxy to expose a stdio MCP server on HTTP port 3000
+mcp-proxy --port 3000 python my_mcp_server.py
+
+# Or for a Node.js MCP server
+mcp-proxy --port 3000 node path/to/mcp-server.js
+```
+
+Once mcp-proxy is running, you can use murl to interact with your stdio MCP server:
+
+```bash
+# List available tools
+murl http://localhost:3000/tools
+
+# Call a tool with arguments
+murl http://localhost:3000/tools/my_tool -d param1=value1 -d param2=value2
+
+# List resources
+murl http://localhost:3000/resources
+
+# Get a prompt
+murl http://localhost:3000/prompts/my_prompt -d arg1=value
+```
+
+**How it works**: murl automatically detects mcp-proxy's session-based SSE architecture and handles it transparently:
+1. Connects to the SSE endpoint to get a session ID
+2. Posts the request to the session-specific endpoint
+3. Reads the response from the SSE stream
+4. Each murl invocation creates and closes its own ephemeral session
 
 For more information about MCP transport protocols, see the [official MCP documentation](https://modelcontextprotocol.io/specification/basic/transports).
 
