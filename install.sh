@@ -73,11 +73,22 @@ fi
 
 echo -e "${GREEN}Downloading murl from GitHub releases...${NC}"
 
-# Get the latest release version
-LATEST_RELEASE=$(curl -s https://api.github.com/repos/turlockmike/murl/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+# Get the latest release version using GitHub API
+GITHUB_API_URL="https://api.github.com/repos/turlockmike/murl/releases/latest"
+RELEASE_JSON=$(curl -fsSL "$GITHUB_API_URL" 2>&1)
+CURL_EXIT_CODE=$?
+
+if [[ $CURL_EXIT_CODE -ne 0 ]]; then
+    echo -e "${RED}Error: Failed to fetch release information from GitHub API${NC}"
+    echo "Please check your internet connection and try again."
+    exit 1
+fi
+
+LATEST_RELEASE=$(echo "$RELEASE_JSON" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/' | head -n1)
 
 if [[ -z "$LATEST_RELEASE" ]]; then
-    echo -e "${RED}Error: Failed to get latest release version${NC}"
+    echo -e "${RED}Error: Failed to parse latest release version${NC}"
+    echo "Please report this issue at https://github.com/turlockmike/murl/issues"
     exit 1
 fi
 
@@ -95,8 +106,12 @@ cd "$TEMP_DIR"
 # Download the wheel file from the latest release
 WHEEL_URL="https://github.com/turlockmike/murl/releases/download/v${LATEST_RELEASE}/murl-${LATEST_RELEASE}-py3-none-any.whl"
 
-if ! curl -L -o "murl-${LATEST_RELEASE}-py3-none-any.whl" "$WHEEL_URL"; then
+echo -e "${GREEN}Downloading from: $WHEEL_URL${NC}"
+
+if ! curl -fL -o "murl-${LATEST_RELEASE}-py3-none-any.whl" "$WHEEL_URL"; then
     echo -e "${RED}Error: Failed to download release${NC}"
+    echo "URL: $WHEEL_URL"
+    echo "This might mean the release doesn't have the expected wheel file."
     exit 1
 fi
 
