@@ -36,7 +36,6 @@ dev = [
 
 [project.scripts]
 murl = "murl.cli:main"
-murl-upgrade = "murl.upgrade:upgrade"
 
 [tool.setuptools]
 packages = ["murl"]

@@ -16,7 +16,7 @@ Test murl immediately with public MCP servers:
 
 ```bash
 # Install murl
-curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
 
 # List available tools on the echo server
 murl https://echo.mcp.inevitable.fyi/mcp/tools
@@ -61,7 +61,7 @@ murl http://localhost:3000/tools/get_current_time
 Install murl with a single command:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/turlockmike/murl/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/turlockmike/murl/master/install.sh | bash
 ```
 
 This will automatically download and install murl from source.
@@ -71,7 +71,7 @@ This will automatically download and install murl from source.
 To upgrade murl to the latest version:
 
 ```bash
-murl-upgrade
+murl --upgrade
 ```
 
 This command downloads and runs the installation script to update murl to the latest release from GitHub.
@@ -102,12 +102,8 @@ Where `<url>` is the MCP server endpoint with a virtual path (e.g., `http://loca
 - `-H, --header <key: value>` - Add custom HTTP headers (e.g., for authentication).
 - `-v, --verbose` - Enable verbose output (prints request/response details to stderr).
 - `--version` - Show detailed version information (includes Python version and installation path).
+- `--upgrade` - Upgrade murl to the latest version from GitHub releases.
 - `--help` - Show help message.
-
-### Commands
-
-- `murl <url> [options]` - Send a request to an MCP server
-- `murl-upgrade` - Upgrade murl to the latest version from GitHub releases
 
 ### Examples
 
