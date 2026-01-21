@@ -1,0 +1,173 @@
+name: Publish to PyPI and Homebrew
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  publish-pypi:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+    
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Verify version matches pyproject.toml
+      run: |
+        PYPROJECT_VERSION=$(grep -E '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+        TAG_VERSION=${{ steps.get_version.outputs.VERSION }}
+        if [ "$PYPROJECT_VERSION" != "$TAG_VERSION" ]; then
+          echo "Error: Version in pyproject.toml ($PYPROJECT_VERSION) does not match tag version ($TAG_VERSION)"
+          exit 1
+        fi
+        echo "Version check passed: $PYPROJECT_VERSION"
+    
+    - name: Build package
+      run: python -m build
+    
+    - name: Check package
+      run: twine check dist/*
+    
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        # Uses trusted publishing - no token needed if configured in PyPI
+        # If not using trusted publishing, uncomment below and set PYPI_API_TOKEN secret
+        # password: ${{ secrets.PYPI_API_TOKEN }}
+        skip-existing: true
+        verbose: true
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: publish-pypi
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## Installation
+          
+          Install via pip:
+          ```bash
+          pip install murl==${{ steps.get_version.outputs.VERSION }}
+          ```
+          
+          ## Changes
+          See commit history for details.
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+
+  update-homebrew:
+    runs-on: ubuntu-latest
+    needs: publish-pypi
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Wait for PyPI availability
+      run: |
+        echo "Waiting 2 minutes for package to be available on PyPI..."
+        sleep 120
+    
+    - name: Generate Homebrew Formula
+      run: |
+        VERSION=${{ steps.get_version.outputs.VERSION }}
+        
+        # Download the package from PyPI to get the SHA256
+        curl -L -o murl-${VERSION}.tar.gz https://files.pythonhosted.org/packages/source/m/murl/murl-${VERSION}.tar.gz
+        SHA256=$(sha256sum murl-${VERSION}.tar.gz | awk '{print $1}')
+        
+        # Create formula directory
+        mkdir -p homebrew-formula
+        
+        # Generate the formula
+        cat > homebrew-formula/murl.rb << EOF
+        class Murl < Formula
+          include Language::Python::Virtualenv
+
+          desc "A curl-like CLI tool for interacting with Model Context Protocol (MCP) servers"
+          homepage "https://github.com/turlockmike/murl"
+          url "https://files.pythonhosted.org/packages/source/m/murl/murl-${VERSION}.tar.gz"
+          sha256 "${SHA256}"
+          license "MIT"
+
+          depends_on "python@3.12"
+
+          resource "click" do
+            url "https://files.pythonhosted.org/packages/source/c/click/click-8.1.7.tar.gz"
+            sha256 "ca9853ad459e787e2192211578cc907e7594e294c7c834310722f2c8264c8d91"
+          end
+
+          resource "requests" do
+            url "https://files.pythonhosted.org/packages/source/r/requests/requests-2.31.0.tar.gz"
+            sha256 "942c5a758f98d5e6fc9f6c6a8e0c63c8b4e6a1d1eb5f13d9c3a6d6a65e4e2c99"
+          end
+
+          def install
+            virtualenv_install_with_resources
+          end
+
+          test do
+            assert_match "murl", shell_output("#{bin}/murl --version")
+          end
+        end
+        EOF
+        
+        echo "Generated Homebrew formula:"
+        cat homebrew-formula/murl.rb
+    
+    - name: Upload Homebrew Formula as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: homebrew-formula
+        path: homebrew-formula/murl.rb
+        retention-days: 90
+    
+    - name: Comment on Release with Formula
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const formula = fs.readFileSync('homebrew-formula/murl.rb', 'utf8');
+          
+          github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: `## Homebrew Formula Generated\n\nThe Homebrew formula has been generated and is available as an artifact.\n\nTo install from this formula:\n\n\`\`\`bash\nbrew install turlockmike/tap/murl\n\`\`\`\n\nOr install directly:\n\n\`\`\`bash\nbrew install murl.rb\n\`\`\`\n\n<details>\n<summary>Formula content</summary>\n\n\`\`\`ruby\n${formula}\n\`\`\`\n\n</details>`
+          });

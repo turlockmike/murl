@@ -18,7 +18,12 @@ pip install murl
 
 ### Using Homebrew
 
-Homebrew support is planned. For now, please use pip installation.
+```bash
+# Install from Homebrew tap (coming soon)
+brew install turlockmike/tap/murl
+```
+
+For now, please use pip installation.
 
 ### From Source
 
@@ -200,3 +205,7 @@ pytest --cov=murl --cov-report=html
 ## License
 
 MIT License - see LICENSE file for details
+
+## Publishing
+
+For maintainers: See [PUBLISHING.md](PUBLISHING.md) for instructions on publishing new versions to PyPI and generating Homebrew formulas.
