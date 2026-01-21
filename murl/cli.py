@@ -6,12 +6,34 @@ import os
 import re
 import subprocess
 import sys
+import urllib.parse
 from typing import Dict, Any, Tuple, Optional
+
+# Python 3.10 compatibility: ExceptionGroup was added in 3.11
+try:
+    ExceptionGroup
+except NameError:
+    from exceptiongroup import ExceptionGroup
 
 import click
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from murl import __version__
+
+
+# Error patterns for connection failures
+# Note: These patterns are based on httpx/httpcore error messages and may need
+# updates if the underlying library changes its error message formats
+DNS_ERROR_PATTERNS = [
+    "No address associated with hostname",
+    "Name or service not known",
+    "nodename nor servname provided",
+]
+
+CONNECTION_REFUSED_PATTERNS = [
+    "Connection refused",
+    "All connection attempts failed",
+]
 
 
 def parse_url(full_url: str) -> Tuple[str, str]:
@@ -420,6 +442,44 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
         sys.exit(1)
     except TimeoutError as e:
         click.echo(f"Error: Request timeout to {url}: {e}", err=True)
+        sys.exit(1)
+    except ExceptionGroup as eg:
+        # Handle ExceptionGroup from async tasks (MCP SDK uses anyio TaskGroups)
+        # Extract the first underlying exception for better error messages
+        if eg.exceptions:
+            exc = eg.exceptions[0]
+            exc_type = type(exc).__name__
+            exc_msg = str(exc)
+            
+            # Extract hostname from base_url for better error messages
+            parsed_url = urllib.parse.urlparse(base_url)
+            hostname = parsed_url.hostname
+            if not hostname:
+                netloc = parsed_url.netloc
+                if netloc:
+                    # Strip optional user info and port from netloc
+                    host_port = netloc.rsplit("@", 1)[-1]
+                    hostname = host_port.split(":", 1)[0] or "unknown host"
+                else:
+                    hostname = "unknown host"
+            
+            if exc_type == "ConnectError":
+                # Parse common connection error patterns
+                if any(pattern in exc_msg for pattern in DNS_ERROR_PATTERNS):
+                    click.echo(f"Error: Could not connect to server at {base_url}", err=True)
+                    click.echo(f"       DNS resolution failed for host: {hostname}", err=True)
+                elif any(pattern in exc_msg for pattern in CONNECTION_REFUSED_PATTERNS):
+                    click.echo(f"Error: Could not connect to server at {base_url}", err=True)
+                    click.echo(f"       Connection refused by host: {hostname}", err=True)
+                else:
+                    click.echo(f"Error: Could not connect to server at {base_url}", err=True)
+                    click.echo(f"       {exc_msg}", err=True)
+            elif (exc_type == "TimeoutError") or ("Timeout" in exc_msg):
+                click.echo(f"Error: Request timeout to {base_url}", err=True)
+            else:
+                click.echo(f"Error: {exc_msg}", err=True)
+        else:
+            click.echo(f"Error: {eg}", err=True)
         sys.exit(1)
     except Exception as e:
         # Handle MCP SDK exceptions and other errors

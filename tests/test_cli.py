@@ -8,6 +8,13 @@ import sys
 import requests
 from pathlib import Path
 from click.testing import CliRunner
+
+# Python 3.10 compatibility: ExceptionGroup was added in 3.11
+try:
+    ExceptionGroup
+except NameError:
+    from exceptiongroup import ExceptionGroup
+
 from murl.cli import (
     main,
     parse_url,
@@ -429,7 +436,57 @@ def test_cli_connection_error():
     result = runner.invoke(main, ["http://localhost:9999/tools"])
     
     assert result.exit_code == 1
-    assert "Connection refused" in result.output or "Error:" in result.output
+    assert "Could not connect to server" in result.output
+    assert "Connection refused" in result.output
+
+
+def test_cli_dns_resolution_error():
+    """Test handling DNS resolution error."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["https://invalid-server.test/tools"])
+    
+    assert result.exit_code == 1
+    assert "Could not connect to server" in result.output
+    assert "DNS resolution failed" in result.output
+
+
+def test_cli_timeout_error():
+    """Test handling timeout error."""
+    from unittest.mock import patch
+    
+    runner = CliRunner()
+    
+    # Mock make_mcp_request to raise an ExceptionGroup with TimeoutError
+    with patch("murl.cli.make_mcp_request") as mock_request:
+        timeout_exc = TimeoutError("Request timed out")
+        mock_request.side_effect = ExceptionGroup("unhandled errors in a TaskGroup", [timeout_exc])
+        
+        result = runner.invoke(main, ["http://localhost:8765/tools"])
+    
+    assert result.exit_code == 1
+    assert "Request timeout" in result.output
+
+
+def test_cli_generic_connect_error():
+    """Test handling generic ConnectError with unknown error message."""
+    from unittest.mock import patch
+    
+    runner = CliRunner()
+    
+    # Mock make_mcp_request to raise an ExceptionGroup with a generic ConnectError
+    with patch("murl.cli.make_mcp_request") as mock_request:
+        # Create a custom ConnectError class with a message that doesn't match known patterns
+        class ConnectError(Exception):
+            pass
+        
+        connect_exc = ConnectError("Some other network error")
+        mock_request.side_effect = ExceptionGroup("unhandled errors in a TaskGroup", [connect_exc])
+        
+        result = runner.invoke(main, ["http://localhost:8765/tools"])
+    
+    assert result.exit_code == 1
+    assert "Could not connect to server" in result.output
+    assert "Some other network error" in result.output
 
 
 def test_cli_invalid_url():
