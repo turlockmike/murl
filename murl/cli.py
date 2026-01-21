@@ -15,6 +15,21 @@ from mcp.client.streamable_http import streamable_http_client
 from murl import __version__
 
 
+# Error patterns for connection failures
+# Note: These patterns are based on httpx/httpcore error messages and may need
+# updates if the underlying library changes its error message formats
+DNS_ERROR_PATTERNS = [
+    "No address associated with hostname",
+    "Name or service not known",
+    "nodename nor servname provided",
+]
+
+CONNECTION_REFUSED_PATTERNS = [
+    "Connection refused",
+    "All connection attempts failed",
+]
+
+
 def parse_url(full_url: str) -> Tuple[str, str]:
     """Parse the full URL into base URL and virtual path.
     
@@ -464,14 +479,22 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
             
             # Extract hostname from base_url for better error messages
             parsed_url = urllib.parse.urlparse(base_url)
-            hostname = parsed_url.hostname or parsed_url.netloc
+            hostname = parsed_url.hostname
+            if not hostname:
+                netloc = parsed_url.netloc
+                if netloc:
+                    # Strip optional user info and port from netloc
+                    host_port = netloc.rsplit("@", 1)[-1]
+                    hostname = host_port.split(":", 1)[0] or "unknown host"
+                else:
+                    hostname = "unknown host"
             
             if exc_type == "ConnectError":
                 # Parse common connection error patterns
-                if "No address associated with hostname" in exc_msg or "Name or service not known" in exc_msg or "nodename nor servname provided" in exc_msg:
+                if any(pattern in exc_msg for pattern in DNS_ERROR_PATTERNS):
                     click.echo(f"Error: Could not connect to server at {base_url}", err=True)
                     click.echo(f"       DNS resolution failed for host: {hostname}", err=True)
-                elif "Connection refused" in exc_msg or "All connection attempts failed" in exc_msg:
+                elif any(pattern in exc_msg for pattern in CONNECTION_REFUSED_PATTERNS):
                     click.echo(f"Error: Could not connect to server at {base_url}", err=True)
                     click.echo(f"       Connection refused by host: {hostname}", err=True)
                 else:
