@@ -99,10 +99,10 @@ This sends a `resources/list` request.
 #### Read a Resource
 
 ```bash
-murl http://localhost:3000/resources/file:///path/to/file
+murl http://localhost:3000/resources//path/to/file
 ```
 
-This sends a `resources/read` request with the URI extracted from the path.
+This sends a `resources/read` request with the file path. The path is automatically converted to a `file://` URI.
 
 #### List Available Prompts
 
@@ -145,7 +145,7 @@ Verbose mode prints the JSON-RPC request payload and HTTP headers to stderr, use
 | `/tools`                  | `tools/list`      | `{}`                                      |
 | `/tools/<name>`           | `tools/call`      | `{name: "<name>", arguments: {...}}`      |
 | `/resources`              | `resources/list`  | `{}`                                      |
-| `/resources/<uri>`        | `resources/read`  | `{uri: "<uri>"}`                          |
+| `/resources/<path>`       | `resources/read`  | `{uri: "file://<path>"}`                  |
 | `/prompts`                | `prompts/list`    | `{}`                                      |
 | `/prompts/<name>`         | `prompts/get`     | `{name: "<name>", arguments: {...}}`      |
 
