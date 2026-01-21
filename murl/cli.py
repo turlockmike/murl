@@ -203,7 +203,7 @@ async def make_mcp_request(
     params: Dict[str, Any],
     headers: Dict[str, str],
     verbose: bool
-) -> Dict[str, Any]:
+) -> Any:
     """Make an MCP request using the official SDK.
     
     Args:
@@ -214,7 +214,7 @@ async def make_mcp_request(
         verbose: Whether to print verbose output
         
     Returns:
-        The result from the MCP server
+        The result from the MCP server (as JSON-serializable data)
         
     Raises:
         Exception: If the request fails
@@ -233,34 +233,40 @@ async def make_mcp_request(
             
             if verbose:
                 click.echo("=== MCP Initialization ===", err=True)
-                click.echo(f"Protocol Version: {init_result.protocol_version}", err=True)
-                click.echo(f"Server: {init_result.server_info.name} {init_result.server_info.version}", err=True)
+                click.echo(f"Protocol Version: {init_result.protocolVersion}", err=True)
+                click.echo(f"Server: {init_result.serverInfo.name} {init_result.serverInfo.version}", err=True)
                 click.echo("", err=True)
             
             # Route to appropriate SDK method
             if method == 'tools/list':
                 result = await session.list_tools()
-                return result.tools
+                # Convert pydantic models to dict
+                return [tool.model_dump(mode='json', exclude_none=True) for tool in result.tools]
             elif method == 'tools/call':
                 tool_name = params.get('name')
                 arguments = params.get('arguments', {})
                 result = await session.call_tool(tool_name, arguments)
-                return result.content
+                # Convert content to dict
+                return [content.model_dump(mode='json', exclude_none=True) for content in result.content]
             elif method == 'resources/list':
                 result = await session.list_resources()
-                return result.resources
+                # Convert resources to dict
+                return [resource.model_dump(mode='json', exclude_none=True) for resource in result.resources]
             elif method == 'resources/read':
                 uri = params.get('uri')
                 result = await session.read_resource(uri)
-                return result.contents
+                # Convert contents to dict
+                return [content.model_dump(mode='json', exclude_none=True) for content in result.contents]
             elif method == 'prompts/list':
                 result = await session.list_prompts()
-                return result.prompts
+                # Convert prompts to dict
+                return [prompt.model_dump(mode='json', exclude_none=True) for prompt in result.prompts]
             elif method == 'prompts/get':
                 prompt_name = params.get('name')
                 arguments = params.get('arguments', {})
                 result = await session.get_prompt(prompt_name, arguments)
-                return result.messages
+                # Convert messages to dict
+                return [message.model_dump(mode='json', exclude_none=True) for message in result.messages]
             else:
                 raise ValueError(f"Unsupported method: {method}")
 

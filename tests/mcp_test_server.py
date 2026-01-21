@@ -104,42 +104,44 @@ class MCPJSONRPCHandler(BaseHTTPRequestHandler):
             }
         }
     
-    def handle_tools_list(self) -> List[Dict[str, Any]]:
+    def handle_tools_list(self) -> Dict[str, Any]:
         """Handle tools/list request."""
-        return [
-            {
-                "name": "echo",
-                "description": "Echo back the input message",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "message": {
-                            "type": "string",
-                            "description": "Message to echo back"
-                        }
-                    },
-                    "required": ["message"]
-                }
-            },
-            {
-                "name": "weather",
-                "description": "Get weather information for a city",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "city": {
-                            "type": "string",
-                            "description": "City name"
+        return {
+            "tools": [
+                {
+                    "name": "echo",
+                    "description": "Echo back the input message",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "description": "Message to echo back"
+                            }
                         },
-                        "metric": {
-                            "type": "boolean",
-                            "description": "Use metric units"
-                        }
-                    },
-                    "required": ["city"]
-                }
-            },
-        ]
+                        "required": ["message"]
+                    }
+                },
+                {
+                    "name": "weather",
+                    "description": "Get weather information for a city",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "city": {
+                                "type": "string",
+                                "description": "City name"
+                            },
+                            "metric": {
+                                "type": "boolean",
+                                "description": "Use metric units"
+                            }
+                        },
+                        "required": ["city"]
+                    }
+                },
+            ]
+        }
     
     def handle_tools_call(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle tools/call request."""
@@ -147,51 +149,70 @@ class MCPJSONRPCHandler(BaseHTTPRequestHandler):
         arguments = params.get('arguments', {})
         
         if name == "echo":
-            return {"message": arguments.get("message", "")}
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": arguments.get("message", "")
+                    }
+                ]
+            }
         elif name == "weather":
             return {
-                "city": arguments.get("city", "Unknown"),
-                "temperature": 72,
-                "metric": arguments.get("metric", False)
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Weather in {arguments.get('city', 'Unknown')}: 72°F"
+                    }
+                ]
             }
         else:
             raise ValueError(f"Unknown tool: {name}")
     
-    def handle_resources_list(self) -> List[Dict[str, Any]]:
+    def handle_resources_list(self) -> Dict[str, Any]:
         """Handle resources/list request."""
-        return [
-            {
-                "uri": "file:///path/to/file1.txt",
-                "name": "file1.txt",
-                "mimeType": "text/plain"
-            },
-            {
-                "uri": "file:///path/to/file2.txt",
-                "name": "file2.txt",
-                "mimeType": "text/plain"
-            },
-        ]
+        return {
+            "resources": [
+                {
+                    "uri": "file:///path/to/file1.txt",
+                    "name": "file1.txt",
+                    "mimeType": "text/plain"
+                },
+                {
+                    "uri": "file:///path/to/file2.txt",
+                    "name": "file2.txt",
+                    "mimeType": "text/plain"
+                },
+            ]
+        }
     
     def handle_resources_read(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle resources/read request."""
         uri = params.get('uri', '')
         return {
-            "uri": uri,
-            "content": "Mock file content"
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "text/plain",
+                    "text": "Mock file content"
+                }
+            ]
         }
     
-    def handle_prompts_list(self) -> List[Dict[str, Any]]:
+    def handle_prompts_list(self) -> Dict[str, Any]:
         """Handle prompts/list request."""
-        return [
-            {
-                "name": "greeting",
-                "description": "Generate a greeting"
-            },
-            {
-                "name": "summary",
-                "description": "Generate a summary"
-            },
-        ]
+        return {
+            "prompts": [
+                {
+                    "name": "greeting",
+                    "description": "Generate a greeting"
+                },
+                {
+                    "name": "summary",
+                    "description": "Generate a summary"
+                },
+            ]
+        }
     
     def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle prompts/get request."""
@@ -200,8 +221,15 @@ class MCPJSONRPCHandler(BaseHTTPRequestHandler):
         user_name = arguments.get('name', 'World')
         
         return {
-            "name": name,
-            "prompt": f"Hello {user_name}!"
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": f"Hello {user_name}!"
+                    }
+                }
+            ]
         }
     
     def log_message(self, format, *args):
