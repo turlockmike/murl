@@ -130,10 +130,29 @@ else
         # Check if user's local bin is in PATH
         USER_BIN="$HOME/.local/bin"
         if [[ -d "$USER_BIN" && ":$PATH:" != *":$USER_BIN:"* ]]; then
+            # Detect user's shell for appropriate rc file
+            RC_FILE="$HOME/.bashrc"
+            if [[ -n "$SHELL" ]]; then
+                case "$SHELL" in
+                    */zsh)
+                        RC_FILE="$HOME/.zshrc"
+                        ;;
+                    */bash)
+                        RC_FILE="$HOME/.bashrc"
+                        ;;
+                esac
+            fi
+            
             echo -e "${YELLOW}Warning: $USER_BIN is not in your PATH${NC}"
-            echo "Add the following line to your ~/.bashrc, ~/.zshrc, or ~/.profile:"
+            echo ""
+            echo "Add the following to your $RC_FILE:"
             echo ""
             echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+            echo ""
+            echo "Then run:"
+            echo ""
+            echo "  source $RC_FILE"
+            echo "  murl --version"
             echo ""
         fi
     else
@@ -149,6 +168,41 @@ else
     fi
 fi
 
+# Function to detect shell and provide PATH instructions
+provide_path_instructions() {
+    local bin_dir="$1"
+    
+    # Detect user's shell
+    local rc_file="$HOME/.bashrc"
+    
+    if [[ -n "$SHELL" ]]; then
+        case "$SHELL" in
+            */zsh)
+                rc_file="$HOME/.zshrc"
+                ;;
+            */bash)
+                rc_file="$HOME/.bashrc"
+                ;;
+            *)
+                # Default to bash if unknown
+                rc_file="$HOME/.bashrc"
+                ;;
+        esac
+    fi
+    
+    echo -e "${YELLOW}Installation completed, but 'murl' command not found in PATH.${NC}"
+    echo ""
+    echo "Add the following to your $rc_file:"
+    echo ""
+    echo "  export PATH=\"$bin_dir:\$PATH\""
+    echo ""
+    echo "Then run:"
+    echo ""
+    echo "  source $rc_file"
+    echo "  murl --version"
+    echo ""
+}
+
 # Verify installation
 if command -v murl &> /dev/null; then
     VERSION=$(murl --version 2>&1 | head -n1 || echo "unknown")
@@ -158,6 +212,39 @@ if command -v murl &> /dev/null; then
     echo "Usage: murl http://localhost:3000/tools"
     echo "Help:  murl --help"
 else
-    echo -e "${YELLOW}Installation completed, but 'murl' command not found in PATH.${NC}"
-    echo "You may need to add the Python scripts directory to your PATH."
+    # Determine where pip installed the package
+    PYTHON_SCRIPTS_DIR=""
+    
+    # Try to get the user scripts directory from Python
+    if [[ "$EUID" -ne 0 ]]; then
+        # For user installation, try to get the user base bin directory
+        PYTHON_SCRIPTS_DIR=$($PYTHON_CMD -c "import site; import os; print(os.path.join(site.USER_BASE, 'bin'))" 2>/dev/null)
+        
+        # If that doesn't exist or is empty, try common locations
+        if [[ -z "$PYTHON_SCRIPTS_DIR" || ! -d "$PYTHON_SCRIPTS_DIR" ]]; then
+            # Check common user bin locations
+            if [[ -d "$HOME/.local/bin" ]]; then
+                PYTHON_SCRIPTS_DIR="$HOME/.local/bin"
+            elif [[ -d "$HOME/Library/Python/$PYTHON_VERSION/bin" ]]; then
+                PYTHON_SCRIPTS_DIR="$HOME/Library/Python/$PYTHON_VERSION/bin"
+            fi
+        fi
+    else
+        # For system installation, check common system bin directories
+        for dir in /usr/local/bin /usr/bin; do
+            if [[ -d "$dir" ]]; then
+                PYTHON_SCRIPTS_DIR="$dir"
+                break
+            fi
+        done
+    fi
+    
+    # If we found a scripts directory, provide instructions
+    if [[ -n "$PYTHON_SCRIPTS_DIR" ]]; then
+        provide_path_instructions "$PYTHON_SCRIPTS_DIR"
+    else
+        # Fallback to generic message
+        echo -e "${YELLOW}Installation completed, but 'murl' command not found in PATH.${NC}"
+        echo "You may need to add the Python scripts directory to your PATH."
+    fi
 fi
