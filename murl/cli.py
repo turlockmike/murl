@@ -248,6 +248,10 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
         # Parse headers
         headers = parse_headers(header_flags) if header_flags else {}
         headers['Content-Type'] = 'application/json'
+        # Support Streamable HTTP transport (MCP protocol)
+        # This allows murl to work with both regular HTTP JSON-RPC servers
+        # and MCP servers using Streamable HTTP transport (like mcp-proxy)
+        headers['Accept'] = 'application/json, text/event-stream'
         
         # Verbose output
         if verbose:
@@ -274,13 +278,37 @@ def main(url: str, data_flags: Tuple[str, ...], header_flags: Tuple[str, ...], v
             click.echo("", err=True)
         
         # Parse response
-        try:
-            response_data = response.json()
-        except json.JSONDecodeError:
-            click.echo(f"Error: Invalid JSON response from server", err=True)
-            click.echo(f"Status Code: {response.status_code}", err=True)
-            click.echo(f"Response: {response.text}", err=True)
-            sys.exit(1)
+        content_type = response.headers.get('Content-Type', '')
+        
+        # Handle SSE response (Streamable HTTP transport)
+        if 'text/event-stream' in content_type:
+            # Parse SSE stream and extract JSON-RPC messages
+            response_data = None
+            for line in response.text.split('\n'):
+                line = line.strip()
+                if line.startswith('data: '):
+                    data_str = line[6:]  # Remove 'data: ' prefix
+                    try:
+                        message = json.loads(data_str)
+                        # Take the last complete JSON-RPC message
+                        if 'id' in message and message.get('id') == jsonrpc_request.get('id'):
+                            response_data = message
+                    except json.JSONDecodeError:
+                        continue
+            
+            if response_data is None:
+                click.echo(f"Error: No valid JSON-RPC response in SSE stream", err=True)
+                click.echo(f"Response: {response.text}", err=True)
+                sys.exit(1)
+        else:
+            # Regular JSON response
+            try:
+                response_data = response.json()
+            except json.JSONDecodeError:
+                click.echo(f"Error: Invalid JSON response from server", err=True)
+                click.echo(f"Status Code: {response.status_code}", err=True)
+                click.echo(f"Response: {response.text}", err=True)
+                sys.exit(1)
         
         # Check for JSON-RPC error
         if 'error' in response_data:
