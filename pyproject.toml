@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0,<77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "murl"
+name = "mcp-curl"
 version = "0.2.0"
 description = "A curl-like CLI tool for interacting with Model Context Protocol (MCP) servers"
 readme = "README.md"
