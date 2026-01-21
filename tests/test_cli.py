@@ -8,6 +8,13 @@ import sys
 import requests
 from pathlib import Path
 from click.testing import CliRunner
+
+# Python 3.10 compatibility: ExceptionGroup was added in 3.11
+try:
+    ExceptionGroup
+except NameError:
+    from exceptiongroup import ExceptionGroup
+
 from murl.cli import (
     main,
     parse_url,

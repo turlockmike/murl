@@ -9,6 +9,12 @@ import sys
 import urllib.parse
 from typing import Dict, Any, Tuple, Optional
 
+# Python 3.10 compatibility: ExceptionGroup was added in 3.11
+try:
+    ExceptionGroup
+except NameError:
+    from exceptiongroup import ExceptionGroup
+
 import click
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
