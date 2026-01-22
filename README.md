@@ -4,6 +4,10 @@
 
 A curl-like CLI tool for interacting with Model Context Protocol (MCP) servers.
 
+<p align="center">
+  <img src="images/logo.png" alt="murl logo" width="400">
+</p>
+
 ## What is MCP?
 
 MCP (Model Context Protocol) is an open standard developed by Anthropic for AI models to access external data sources, tools, and services. It provides a universal way for large language models (LLMs) to interact with various resources securely and efficiently.
