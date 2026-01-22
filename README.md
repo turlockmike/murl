@@ -1,12 +1,12 @@
-<p align="center">
-  <img src="images/logo.png" alt="murl logo" width="400">
-</p>
-
 # murl - MCP Curl
 
 [![Tests](https://github.com/turlockmike/murl/actions/workflows/test.yml/badge.svg)](https://github.com/turlockmike/murl/actions/workflows/test.yml)
 
 A curl-like CLI tool for interacting with Model Context Protocol (MCP) servers.
+
+<p align="center">
+  <img src="images/logo.png" alt="murl logo" width="400">
+</p>
 
 ## What is MCP?
 
