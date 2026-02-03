@@ -179,12 +179,12 @@ If Level 3 compliance is desired for discoverability or agent compatibility, it 
 ## Testing Level 3/4 Compliance
 
 If Level 3/4 features are added, use the PAS conformance test suite:
-- Repository: `github.com/posix-agent-standard/tests`
+- Repository: https://github.com/posix-agent-standard/tests
 - Run: `pas-test murl --level 3`
 
 For self-validation:
 ```bash
-murl --validate-pas  # Proposed command to check compliance
+murl --validate-pas  # Command to check current compliance status
 ```
 
 ## References
