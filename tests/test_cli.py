@@ -494,7 +494,7 @@ def test_cli_invalid_url():
     runner = CliRunner()
     result = runner.invoke(main, ["http://localhost:3000/invalid"])
     
-    assert result.exit_code == 1
+    assert result.exit_code == 2  # Exit code 2 for invalid arguments per POSIX Agent Standard
     assert "Invalid MCP URL" in result.output
 
 
@@ -541,3 +541,108 @@ def test_upgrade_option():
     assert result.exit_code == 0
     assert "Upgrading murl" in result.output
     assert "Upgrade complete" in result.output
+
+
+# POSIX Agent Standard (PAS) tests
+
+def test_agent_help():
+    """Test --agent --help flag displays agent-optimized help."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--agent", "--help"])
+    assert result.exit_code == 0
+    assert "USAGE:" in result.output
+    assert "COMMON PATTERNS:" in result.output
+    assert "ERROR CODES:" in result.output
+    assert "ANTI-PATTERNS:" in result.output
+    # Should be concise agent contract, not verbose human help
+    assert "JSON Lines (NDJSON)" in result.output
+
+
+def test_agent_mode_list_output(mcp_server):
+    """Test --agent mode outputs JSON Lines (NDJSON) for lists."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--agent", f"{TEST_SERVER_URL}/tools"])
+    
+    assert result.exit_code == 0
+    # Parse output as JSON Lines
+    lines = result.output.strip().split('\n')
+    assert len(lines) > 0
+    
+    # Each line should be valid, compact JSON
+    for line in lines:
+        obj = json.loads(line)
+        assert isinstance(obj, dict)
+        # Check for compact JSON (no spaces after separators)
+        assert ', ' not in line or '": ' not in line or ': ' not in line
+
+
+def test_agent_mode_single_output(mcp_server):
+    """Test --agent mode outputs compact JSON for single results."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--agent", f"{TEST_SERVER_URL}/tools/echo", "-d", "message=test"])
+    
+    assert result.exit_code == 0
+    # Should be compact JSON (no indentation)
+    assert '  ' not in result.output  # No double spaces (indentation)
+    # Should be valid JSON Lines (one object per line)
+    lines = result.output.strip().split('\n')
+    for line in lines:
+        obj = json.loads(line)
+        assert isinstance(obj, dict)
+
+
+def test_agent_mode_error_structure():
+    """Test --agent mode outputs structured errors to stderr."""
+    runner = CliRunner(mix_stderr=False)
+    # Invalid URL should produce structured error
+    result = runner.invoke(main, ["--agent", "http://localhost:3000/invalid"])
+    
+    assert result.exit_code == 2  # Invalid arguments
+    # Error should be on stderr, not stdout
+    assert result.stdout == "" or result.stdout.strip() == ""
+    # stderr should contain structured JSON error
+    error_obj = json.loads(result.stderr.strip())
+    assert "error" in error_obj
+    assert "message" in error_obj
+    assert "code" in error_obj
+    assert error_obj["code"] == 2
+
+
+def test_agent_mode_connection_error():
+    """Test --agent mode connection error is structured."""
+    runner = CliRunner(mix_stderr=False)
+    # Connect to non-existent server
+    result = runner.invoke(main, ["--agent", "http://localhost:19999/tools"])
+    
+    assert result.exit_code == 1  # General error
+    # Error should be on stderr as structured JSON
+    assert result.stdout == "" or result.stdout.strip() == ""
+    error_obj = json.loads(result.stderr.strip())
+    assert "error" in error_obj
+    assert error_obj["error"] in ["CONNECTION_REFUSED", "CONNECTION_ERROR"]
+    assert "message" in error_obj
+
+
+def test_agent_mode_missing_url():
+    """Test --agent mode with missing URL produces structured error."""
+    runner = CliRunner(mix_stderr=False)
+    result = runner.invoke(main, ["--agent"])
+    
+    assert result.exit_code == 2  # Invalid arguments
+    assert result.stdout == "" or result.stdout.strip() == ""
+    error_obj = json.loads(result.stderr.strip())
+    assert error_obj["error"] == "MISSING_ARGUMENT"
+    assert "URL argument is required" in error_obj["message"]
+
+
+def test_human_mode_list_output(mcp_server):
+    """Test human mode (without --agent) outputs pretty-printed JSON."""
+    runner = CliRunner()
+    result = runner.invoke(main, [f"{TEST_SERVER_URL}/tools"])
+    
+    assert result.exit_code == 0
+    # Should be pretty-printed JSON with indentation
+    assert '  ' in result.output  # Has indentation
+    # Should be valid JSON array
+    output = json.loads(result.output)
+    assert isinstance(output, list)
