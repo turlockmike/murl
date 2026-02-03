@@ -4,6 +4,8 @@
 
 A curl-like CLI tool for interacting with Model Context Protocol (MCP) servers.
 
+**POSIX Agent Standard Compliant:** This tool implements [Level 2 (Agent-Optimized)](https://github.com/turlockmike/posix-agent-standard) compliance, making it natively compatible with AI agents.
+
 <p align="center">
   <img src="images/logo.png" alt="murl logo" width="400">
 </p>
@@ -135,9 +137,55 @@ Where `<url>` is the MCP server endpoint with a virtual path (e.g., `http://loca
 - `-d, --data <key=value>` - Add data to the request. Can be used multiple times.
 - `-H, --header <key: value>` - Add custom HTTP headers (e.g., for authentication).
 - `-v, --verbose` - Enable verbose output (prints request/response details to stderr).
+- `--agent` - Enable agent-compatible mode (pure JSON output, structured errors). See [Agent Mode](#agent-mode) below.
 - `--version` - Show detailed version information (includes Python version and installation path).
 - `--upgrade` - Upgrade murl to the latest version from GitHub releases.
 - `--help` - Show help message.
+
+### Agent Mode
+
+murl implements the [POSIX Agent Standard (Level 2)](https://github.com/turlockmike/posix-agent-standard) for AI agent compatibility. Use the `--agent` flag to enable agent-optimized behavior:
+
+**Key Features:**
+- **Pure JSON output:** Compact JSON to stdout (no pretty-printing)
+- **JSON Lines (NDJSON):** List operations output one JSON object per line
+- **Structured errors:** JSON error objects to stderr with error codes
+- **Non-interactive:** No prompts or progress indicators
+- **Semantic exit codes:** 
+  - `0` = Success
+  - `1` = General error (connection, timeout, server error)
+  - `2` = Invalid arguments (malformed URL, invalid data format)
+  - `100` = MCP server error (reported via JSON `code` field, not exit code)
+
+**Examples:**
+
+```bash
+# Get agent-optimized help
+murl --agent --help
+
+# List tools (JSON Lines output)
+murl --agent http://localhost:3000/tools
+
+# Call a tool with compact JSON output
+murl --agent http://localhost:3000/tools/echo -d message=hello
+
+# Process NDJSON output with jq (one JSON object per line)
+murl --agent http://localhost:3000/tools | jq -c '.'
+
+# Handle errors programmatically
+if ! result=$(murl --agent http://localhost:3000/tools/invalid 2>&1); then
+  echo "Error: $result" | jq -r '.message'
+fi
+```
+
+**Agent Mode vs Human Mode:**
+
+| Feature | Human Mode | Agent Mode (`--agent`) |
+|---------|-----------|------------------------|
+| JSON Output | Pretty-printed (indented) | Compact (no spaces) |
+| List Output | JSON array | JSON Lines (NDJSON) |
+| Error Output | Friendly message to stderr | Structured JSON to stderr |
+| Exit Codes | 0, 1, or 2 (2 for invalid arguments) | Semantic (0, 1, 2) |
 
 ### Examples
 
