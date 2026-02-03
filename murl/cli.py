@@ -36,6 +36,45 @@ CONNECTION_REFUSED_PATTERNS = [
 ]
 
 
+# Error code constants for better categorization
+class ErrorCode:
+    """Error code constants for agent mode."""
+    SUCCESS = 0
+    GENERAL_ERROR = 1
+    INVALID_ARGUMENT = 2
+    MCP_SERVER_ERROR = 100  # Used in JSON 'code' field, not as exit code
+
+
+def output_error(agent_mode: bool, error_type: str, message: str, exit_code: int, 
+                 suggestion: Optional[str] = None, url: Optional[str] = None) -> None:
+    """Output an error message in agent or human mode and exit.
+    
+    Args:
+        agent_mode: Whether agent mode is enabled
+        error_type: Error type constant (e.g., "INVALID_ARGUMENT", "CONNECTION_ERROR")
+        message: Human-readable error message
+        exit_code: Exit code to use (0, 1, 2)
+        suggestion: Optional suggestion for recovery (agent mode only)
+        url: Optional URL for context (human mode only)
+    """
+    if agent_mode:
+        error_obj = {
+            "error": error_type,
+            "message": message,
+            "code": exit_code
+        }
+        if suggestion:
+            error_obj["suggestion"] = suggestion
+        click.echo(json.dumps(error_obj), err=True)
+    else:
+        # Human mode: friendly error messages
+        if url:
+            click.echo(f"Error: {message} ({url})", err=True)
+        else:
+            click.echo(f"Error: {message}", err=True)
+    sys.exit(exit_code)
+
+
 def parse_url(full_url: str) -> Tuple[str, str]:
     """Parse the full URL into base URL and virtual path.
     
@@ -492,14 +531,13 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
     # If no URL is provided, show error in agent mode or help in human mode
     if url is None:
         if agent:
-            error_obj = {
-                "error": "MISSING_ARGUMENT",
-                "message": "URL argument is required",
-                "code": 2,
-                "suggestion": "Use: murl --agent --help for usage information"
-            }
-            click.echo(json.dumps(error_obj), err=True)
-            sys.exit(2)
+            output_error(
+                agent_mode=True,
+                error_type="MISSING_ARGUMENT",
+                message="URL argument is required",
+                exit_code=ErrorCode.INVALID_ARGUMENT,
+                suggestion="Use: murl --agent --help for usage information"
+            )
         else:
             ctx = click.get_current_context()
             click.echo(ctx.get_help())
@@ -536,39 +574,28 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
             click.echo(json.dumps(result, indent=2))
         
     except ValueError as e:
-        if agent:
-            # Agent mode: structured error to stderr
-            error_obj = {
-                "error": "INVALID_ARGUMENT",
-                "message": str(e),
-                "code": 2
-            }
-            click.echo(json.dumps(error_obj), err=True)
-        else:
-            click.echo(f"Error: {e}", err=True)
-        sys.exit(2)
+        output_error(
+            agent_mode=agent,
+            error_type="INVALID_ARGUMENT",
+            message=str(e),
+            exit_code=ErrorCode.INVALID_ARGUMENT
+        )
     except ConnectionError as e:
-        if agent:
-            error_obj = {
-                "error": "CONNECTION_ERROR",
-                "message": f"Failed to connect: {str(e)}",
-                "code": 1
-            }
-            click.echo(json.dumps(error_obj), err=True)
-        else:
-            click.echo(f"Error: Failed to connect to {url}: {e}", err=True)
-        sys.exit(1)
+        output_error(
+            agent_mode=agent,
+            error_type="CONNECTION_ERROR",
+            message=f"Failed to connect: {str(e)}" if agent else f"Failed to connect to {url}: {e}",
+            exit_code=ErrorCode.GENERAL_ERROR,
+            url=url if not agent else None
+        )
     except TimeoutError as e:
-        if agent:
-            error_obj = {
-                "error": "TIMEOUT",
-                "message": f"Request timeout: {str(e)}",
-                "code": 1
-            }
-            click.echo(json.dumps(error_obj), err=True)
-        else:
-            click.echo(f"Error: Request timeout to {url}: {e}", err=True)
-        sys.exit(1)
+        output_error(
+            agent_mode=agent,
+            error_type="TIMEOUT",
+            message=f"Request timeout: {str(e)}" if agent else f"Request timeout to {url}: {e}",
+            exit_code=ErrorCode.GENERAL_ERROR,
+            url=url if not agent else None
+        )
     except ExceptionGroup as eg:
         # Handle ExceptionGroup from async tasks (MCP SDK uses anyio TaskGroups)
         # Extract the first underlying exception for better error messages
@@ -589,109 +616,92 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
                 else:
                     hostname = "unknown host"
             
-            if agent:
-                # Agent mode: structured error to stderr
-                if exc_type == "ConnectError":
-                    if any(pattern in exc_msg for pattern in DNS_ERROR_PATTERNS):
-                        error_obj = {
-                            "error": "DNS_RESOLUTION_FAILED",
-                            "message": f"DNS resolution failed for host: {hostname}",
-                            "code": 1
-                        }
-                    elif any(pattern in exc_msg for pattern in CONNECTION_REFUSED_PATTERNS):
-                        error_obj = {
-                            "error": "CONNECTION_REFUSED",
-                            "message": f"Connection refused by host: {hostname}",
-                            "code": 1
-                        }
-                    else:
-                        error_obj = {
-                            "error": "CONNECTION_ERROR",
-                            "message": str(exc_msg),
-                            "code": 1
-                        }
-                elif (exc_type == "TimeoutError") or ("Timeout" in exc_msg):
-                    error_obj = {
-                        "error": "TIMEOUT",
-                        "message": "Request timeout",
-                        "code": 1
-                    }
+            # Determine error type and message based on exception
+            if exc_type == "ConnectError":
+                if any(pattern in exc_msg for pattern in DNS_ERROR_PATTERNS):
+                    error_type = "DNS_RESOLUTION_FAILED"
+                    agent_msg = f"DNS resolution failed for host: {hostname}"
+                    human_msg = f"Could not connect to server at {base_url}\n       DNS resolution failed for host: {hostname}"
+                elif any(pattern in exc_msg for pattern in CONNECTION_REFUSED_PATTERNS):
+                    error_type = "CONNECTION_REFUSED"
+                    agent_msg = f"Connection refused by host: {hostname}"
+                    human_msg = f"Could not connect to server at {base_url}\n       Connection refused by host: {hostname}"
                 else:
-                    error_obj = {
-                        "error": exc_type.upper(),
-                        "message": str(exc_msg),
-                        "code": 1
-                    }
-                click.echo(json.dumps(error_obj), err=True)
+                    error_type = "CONNECTION_ERROR"
+                    agent_msg = str(exc_msg)
+                    human_msg = f"Could not connect to server at {base_url}\n       {exc_msg}"
+            elif (exc_type == "TimeoutError") or ("Timeout" in exc_msg):
+                error_type = "TIMEOUT"
+                agent_msg = "Request timeout"
+                human_msg = f"Request timeout to {base_url}"
             else:
-                # Human mode: friendly error messages
-                if exc_type == "ConnectError":
-                    # Parse common connection error patterns
-                    if any(pattern in exc_msg for pattern in DNS_ERROR_PATTERNS):
-                        click.echo(f"Error: Could not connect to server at {base_url}", err=True)
-                        click.echo(f"       DNS resolution failed for host: {hostname}", err=True)
-                    elif any(pattern in exc_msg for pattern in CONNECTION_REFUSED_PATTERNS):
-                        click.echo(f"Error: Could not connect to server at {base_url}", err=True)
-                        click.echo(f"       Connection refused by host: {hostname}", err=True)
-                    else:
-                        click.echo(f"Error: Could not connect to server at {base_url}", err=True)
-                        click.echo(f"       {exc_msg}", err=True)
-                elif (exc_type == "TimeoutError") or ("Timeout" in exc_msg):
-                    click.echo(f"Error: Request timeout to {base_url}", err=True)
-                else:
-                    click.echo(f"Error: {exc_msg}", err=True)
-        else:
+                error_type = exc_type.upper()
+                agent_msg = str(exc_msg)
+                human_msg = str(exc_msg)
+            
+            # Output using helper function
             if agent:
                 error_obj = {
-                    "error": "EXCEPTION_GROUP",
-                    "message": str(eg),
-                    "code": 1
+                    "error": error_type,
+                    "message": agent_msg,
+                    "code": ErrorCode.GENERAL_ERROR
                 }
                 click.echo(json.dumps(error_obj), err=True)
             else:
-                click.echo(f"Error: {eg}", err=True)
-        sys.exit(1)
+                # For human mode with multi-line messages, output directly
+                click.echo(f"Error: {human_msg}", err=True)
+            sys.exit(ErrorCode.GENERAL_ERROR)
+        else:
+            output_error(
+                agent_mode=agent,
+                error_type="EXCEPTION_GROUP",
+                message=str(eg),
+                exit_code=ErrorCode.GENERAL_ERROR
+            )
     except Exception as e:
         # Handle MCP SDK exceptions and other errors
         error_msg = str(e)
-        if agent:
-            # Agent mode: structured error to stderr
-            if "ConnectError" in error_msg or "Connection" in error_msg:
+        
+        # Determine error type and exit code
+        if "ValidationError" in error_msg:
+            error_type = "VALIDATION_ERROR"
+            agent_msg = f"Invalid response from server: {error_msg}"
+            human_msg = f"Invalid response from server: {e}"
+            # Use code 100 in JSON but exit with 1
+            if agent:
                 error_obj = {
-                    "error": "CONNECTION_ERROR",
-                    "message": "Failed to connect",
-                    "code": 1
+                    "error": error_type,
+                    "message": agent_msg,
+                    "code": ErrorCode.MCP_SERVER_ERROR
                 }
-            elif "Timeout" in error_msg:
-                error_obj = {
-                    "error": "TIMEOUT",
-                    "message": "Request timeout",
-                    "code": 1
-                }
-            elif "ValidationError" in error_msg:
-                error_obj = {
-                    "error": "VALIDATION_ERROR",
-                    "message": f"Invalid response from server: {error_msg}",
-                    "code": 100
-                }
+                click.echo(json.dumps(error_obj), err=True)
+                sys.exit(ErrorCode.GENERAL_ERROR)
             else:
-                error_obj = {
-                    "error": "ERROR",
-                    "message": error_msg,
-                    "code": 1
-                }
-            click.echo(json.dumps(error_obj), err=True)
+                click.echo(f"Error: {human_msg}", err=True)
+                sys.exit(ErrorCode.GENERAL_ERROR)
+        elif "ConnectError" in error_msg or "Connection" in error_msg:
+            output_error(
+                agent_mode=agent,
+                error_type="CONNECTION_ERROR",
+                message="Failed to connect" if agent else f"Failed to connect to {url}",
+                exit_code=ErrorCode.GENERAL_ERROR,
+                url=url if not agent else None
+            )
+        elif "Timeout" in error_msg:
+            output_error(
+                agent_mode=agent,
+                error_type="TIMEOUT",
+                message="Request timeout" if agent else f"Request timeout to {url}",
+                exit_code=ErrorCode.GENERAL_ERROR,
+                url=url if not agent else None
+            )
         else:
-            # Human mode: friendly error messages
-            if "ConnectError" in error_msg or "Connection" in error_msg:
-                click.echo(f"Error: Failed to connect to {url}", err=True)
-            elif "Timeout" in error_msg:
-                click.echo(f"Error: Request timeout to {url}", err=True)
-            elif "ValidationError" in error_msg:
-                click.echo(f"Error: Invalid response from server: {e}", err=True)
-            else:
-                click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+            output_error(
+                agent_mode=agent,
+                error_type="ERROR",
+                message=error_msg,
+                exit_code=ErrorCode.GENERAL_ERROR
+            )
 
 
 if __name__ == "__main__":

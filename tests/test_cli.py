@@ -573,7 +573,7 @@ def test_agent_mode_list_output(mcp_server):
         obj = json.loads(line)
         assert isinstance(obj, dict)
         # Check for compact JSON (no spaces after separators)
-        assert ', ' not in line or '": ' not in line or ': ' not in line
+        assert ', ' not in line and '": ' not in line and ': ' not in line
 
 
 def test_agent_mode_single_output(mcp_server):
@@ -593,13 +593,15 @@ def test_agent_mode_single_output(mcp_server):
 
 def test_agent_mode_error_structure():
     """Test --agent mode outputs structured errors to stderr."""
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     # Invalid URL should produce structured error
     result = runner.invoke(main, ["--agent", "http://localhost:3000/invalid"])
     
     assert result.exit_code == 2  # Invalid arguments
-    # Output should contain structured JSON error
-    error_obj = json.loads(result.output.strip())
+    # Error should be on stderr, not stdout
+    assert result.stdout == ""
+    # stderr should contain structured JSON error
+    error_obj = json.loads(result.stderr.strip())
     assert "error" in error_obj
     assert "message" in error_obj
     assert "code" in error_obj
@@ -608,13 +610,14 @@ def test_agent_mode_error_structure():
 
 def test_agent_mode_connection_error():
     """Test --agent mode connection error is structured."""
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     # Connect to non-existent server
     result = runner.invoke(main, ["--agent", "http://localhost:19999/tools"])
     
     assert result.exit_code == 1  # General error
-    # Output should contain structured JSON error
-    error_obj = json.loads(result.output.strip())
+    # Error should be on stderr as structured JSON
+    assert result.stdout == ""
+    error_obj = json.loads(result.stderr.strip())
     assert "error" in error_obj
     assert error_obj["error"] in ["CONNECTION_REFUSED", "CONNECTION_ERROR"]
     assert "message" in error_obj
@@ -622,11 +625,12 @@ def test_agent_mode_connection_error():
 
 def test_agent_mode_missing_url():
     """Test --agent mode with missing URL produces structured error."""
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     result = runner.invoke(main, ["--agent"])
     
     assert result.exit_code == 2  # Invalid arguments
-    error_obj = json.loads(result.output.strip())
+    assert result.stdout == ""
+    error_obj = json.loads(result.stderr.strip())
     assert error_obj["error"] == "MISSING_ARGUMENT"
     assert "URL argument is required" in error_obj["message"]
 

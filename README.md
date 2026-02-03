@@ -155,6 +155,7 @@ murl implements the [POSIX Agent Standard (Level 2)](https://github.com/turlockm
   - `0` = Success
   - `1` = General error (connection, timeout, server error)
   - `2` = Invalid arguments (malformed URL, invalid data format)
+  - `100` = MCP server error (reported via JSON `code` field, not exit code)
 
 **Examples:**
 
@@ -168,8 +169,8 @@ murl --agent http://localhost:3000/tools
 # Call a tool with compact JSON output
 murl --agent http://localhost:3000/tools/echo -d message=hello
 
-# Process output with jq
-murl --agent http://localhost:3000/tools | jq -c '.[]'
+# Process NDJSON output with jq (one JSON object per line)
+murl --agent http://localhost:3000/tools | jq -c '.'
 
 # Handle errors programmatically
 if ! result=$(murl --agent http://localhost:3000/tools/invalid 2>&1); then
@@ -184,7 +185,7 @@ fi
 | JSON Output | Pretty-printed (indented) | Compact (no spaces) |
 | List Output | JSON array | JSON Lines (NDJSON) |
 | Error Output | Friendly message to stderr | Structured JSON to stderr |
-| Exit Codes | 0 or 1 | Semantic (0, 1, 2) |
+| Exit Codes | 0, 1, or 2 (2 for invalid arguments) | Semantic (0, 1, 2) |
 
 ### Examples
 
