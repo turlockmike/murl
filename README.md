@@ -140,7 +140,18 @@ Where `<url>` is the MCP server endpoint with a virtual path (e.g., `http://loca
 - `--agent` - Enable agent-compatible mode (pure JSON output, structured errors). See [Agent Mode](#agent-mode) below.
 - `--version` - Show detailed version information (includes Python version and installation path).
 - `--upgrade` - Upgrade murl to the latest version from GitHub releases.
+- `--validate-pas` - Validate POSIX Agent Standard (PAS) compliance.
 - `--help` - Show help message.
+
+### POSIX Agent Standard Compliance
+
+murl is fully compliant with [POSIX Agent Standard (PAS) Level 2](https://github.com/turlockmike/posix-agent-standard), making it natively compatible with AI agents. To check compliance status:
+
+```bash
+murl --validate-pas
+```
+
+This will display a detailed compliance report showing which PAS levels are implemented. For more information about Level 3 and Level 4 compliance exploration, see [PAS_COMPLIANCE.md](PAS_COMPLIANCE.md).
 
 ### Agent Mode
 

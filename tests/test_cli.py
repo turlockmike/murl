@@ -655,3 +655,20 @@ def test_human_mode_list_output(mcp_server):
     # Should be valid JSON array
     output = json.loads(result.output)
     assert isinstance(output, list)
+
+
+def test_validate_pas_option():
+    """Test --validate-pas option shows PAS compliance check."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--validate-pas"])
+    
+    assert result.exit_code == 0
+    # Should contain PAS compliance information
+    assert "POSIX Agent Standard (PAS) Compliance Check" in result.output
+    assert "Level 1: Agent-Safe" in result.output
+    assert "Level 2: Agent-Optimized" in result.output
+    assert "Level 3: Navigation Contract" in result.output
+    assert "Level 4: State Contract" in result.output
+    assert "COMPLIANCE STATUS: Level 2 (Agent-Optimized) ✅" in result.output
+    # Should reference the compliance document
+    assert "PAS_COMPLIANCE.md" in result.output
