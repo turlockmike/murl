@@ -1,8 +1,6 @@
 """Tests for the OAuth 2.0 auth module."""
 
-import json
 import time
-import threading
 import urllib.parse
 from unittest.mock import patch, MagicMock
 
@@ -23,7 +21,6 @@ from murl.token_store import (
     save_credentials,
     clear_credentials,
     is_expired,
-    CREDENTIALS_DIR,
 )
 
 
@@ -129,6 +126,16 @@ class TestDiscoverMetadata:
         with patch("murl.auth.httpx.get", side_effect=httpx.ConnectError("fail")):
             result = discover_metadata("https://example.com/mcp")
             assert "authorization_endpoint" in result
+
+    def test_error_on_500(self):
+        with patch("murl.auth.httpx.get") as mock_get:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 500
+            mock_resp.text = "Internal Server Error"
+            mock_get.return_value = mock_resp
+
+            with pytest.raises(OAuthError, match="Failed to fetch OAuth metadata"):
+                discover_metadata("https://example.com/mcp")
 
 
 # ---------------------------------------------------------------------------

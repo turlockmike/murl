@@ -33,11 +33,14 @@ def save_credentials(server_url: str, creds: dict) -> None:
     """Persist credentials for a server URL."""
     CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
     path = CREDENTIALS_DIR / f"{_key_for_url(server_url)}.json"
-    creds["server_url"] = server_url
+    data_to_save = dict(creds)
+    data_to_save["server_url"] = server_url
     with open(path, "w") as f:
-        json.dump(creds, f, indent=2)
-    # Restrict permissions to owner only
-    os.chmod(path, 0o600)
+        json.dump(data_to_save, f, indent=2)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass  # Best-effort permissions
 
 
 def clear_credentials(server_url: str) -> None:

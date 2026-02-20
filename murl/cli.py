@@ -402,7 +402,8 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
         headers = parse_headers(header_flags) if header_flags else {}
 
         # --- Auth ---
-        if not no_auth and 'Authorization' not in headers:
+        has_auth_header = any(k.lower() == 'authorization' for k in headers)
+        if not no_auth and not has_auth_header:
             if login:
                 clear_credentials(base_url)
 
@@ -427,6 +428,13 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
             result = asyncio.run(make_mcp_request(base_url, method, params, headers, verbose))
         except (Exception, ExceptionGroup) as req_err:
             err_str = str(req_err)
+            # Unwrap ExceptionGroup to check nested exceptions for 401
+            if isinstance(req_err, (ExceptionGroup, BaseExceptionGroup)):
+                for exc in req_err.exceptions:
+                    exc_str = str(exc)
+                    if "401" in exc_str or "Unauthorized" in exc_str:
+                        err_str = exc_str
+                        break
             if not no_auth and ("401" in err_str or "Unauthorized" in err_str):
                 if verbose:
                     click.echo("Received 401 — initiating OAuth flow...", err=True)

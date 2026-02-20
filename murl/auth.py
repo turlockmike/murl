@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import html
 import json
 import secrets
 import threading
@@ -38,17 +39,30 @@ def discover_metadata(server_url: str) -> dict:
 
     try:
         resp = httpx.get(url, follow_redirects=True, timeout=10)
-        if resp.status_code == 200:
-            return resp.json()
-    except (httpx.HTTPError, json.JSONDecodeError):
-        pass
+    except httpx.HTTPError:
+        # Network error — fall back to defaults
+        return {
+            "authorization_endpoint": f"{base}/authorize",
+            "token_endpoint": f"{base}/token",
+            "registration_endpoint": f"{base}/register",
+        }
 
-    # Fallback defaults
-    return {
-        "authorization_endpoint": f"{base}/authorize",
-        "token_endpoint": f"{base}/token",
-        "registration_endpoint": f"{base}/register",
-    }
+    if resp.status_code == 200:
+        try:
+            return resp.json()
+        except json.JSONDecodeError as exc:
+            raise OAuthError("Invalid JSON in OAuth metadata response") from exc
+
+    if resp.status_code == 404:
+        return {
+            "authorization_endpoint": f"{base}/authorize",
+            "token_endpoint": f"{base}/token",
+            "registration_endpoint": f"{base}/register",
+        }
+
+    raise OAuthError(
+        f"Failed to fetch OAuth metadata ({resp.status_code}): {resp.text}"
+    )
 
 
 def register_client(registration_endpoint: str, redirect_uri: str) -> dict:
@@ -73,7 +87,13 @@ def register_client(registration_endpoint: str, redirect_uri: str) -> dict:
         raise OAuthError(
             f"Client registration failed ({resp.status_code}): {resp.text}"
         )
-    return resp.json()
+    try:
+        return resp.json()
+    except json.JSONDecodeError as exc:
+        raise OAuthError(
+            f"Client registration returned invalid JSON "
+            f"({resp.status_code}): {resp.text}"
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -124,11 +144,12 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
-        html = (
+        safe_body = html.escape(body)
+        page = (
             "<html><body style='font-family:system-ui;text-align:center;"
-            f"padding:3em'><h2>{body}</h2></body></html>"
+            f"padding:3em'><h2>{safe_body}</h2></body></html>"
         )
-        self.wfile.write(html.encode())
+        self.wfile.write(page.encode())
 
     def log_message(self, format, *args):
         """Suppress default stderr logging."""
@@ -171,7 +192,7 @@ def _generate_pkce() -> tuple:
 # Public API
 # ---------------------------------------------------------------------------
 
-def authorize(server_url: str, force: bool = False) -> dict:
+def authorize(server_url: str) -> dict:
     """Run the full OAuth flow and return credential dict.
 
     Steps: metadata discovery -> client registration -> PKCE browser auth -> token exchange.
@@ -264,7 +285,12 @@ def authorize(server_url: str, force: bool = False) -> dict:
     if resp.status_code != 200:
         raise OAuthError(f"Token exchange failed ({resp.status_code}): {resp.text}")
 
-    token = resp.json()
+    try:
+        token = resp.json()
+    except json.JSONDecodeError as exc:
+        raise OAuthError(
+            f"Token exchange returned invalid JSON ({resp.status_code}): {resp.text}"
+        ) from exc
     expires_in = token.get("expires_in", 3600)
 
     creds = {
@@ -303,7 +329,12 @@ def refresh_token(creds: dict) -> dict:
     if resp.status_code != 200:
         raise OAuthError(f"Token refresh failed ({resp.status_code}): {resp.text}")
 
-    token = resp.json()
+    try:
+        token = resp.json()
+    except json.JSONDecodeError as exc:
+        raise OAuthError(
+            f"Token refresh returned invalid JSON: {resp.text}"
+        ) from exc
     expires_in = token.get("expires_in", 3600)
 
     creds["access_token"] = token["access_token"]
