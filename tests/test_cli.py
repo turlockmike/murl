@@ -570,3 +570,103 @@ def test_verbose_output_is_pretty_printed(mcp_server):
 
     assert result.exit_code == 0
     assert '  ' in result.output  # Has indentation
+
+
+# OAuth CLI integration tests
+
+def test_cli_login_triggers_oauth(mcp_server):
+    """--login clears stored creds, runs OAuth, stores new creds, and makes request."""
+    from unittest.mock import patch, MagicMock
+    import time as _time
+
+    fake_creds = {
+        "client_id": "cid",
+        "access_token": "tok_new",
+        "refresh_token": "rt",
+        "expires_at": _time.time() + 3600,
+        "token_endpoint": "https://auth.example.com/token",
+        "registration_endpoint": "https://auth.example.com/register",
+        "server_url": "http://localhost",
+    }
+
+    runner = CliRunner()
+    with patch("murl.cli.clear_credentials") as mock_clear, \
+         patch("murl.cli.get_credentials", return_value=None), \
+         patch("murl.cli.authorize", return_value=fake_creds) as mock_auth, \
+         patch("murl.cli.save_credentials") as mock_save:
+        result = runner.invoke(main, [f"{TEST_SERVER_URL}/tools", "--login"])
+
+    assert mock_clear.called, "clear_credentials should be called with --login"
+    assert mock_auth.called, "authorize should be called with --login"
+    assert mock_save.called, "save_credentials should be called after OAuth"
+    assert result.exit_code == 0
+
+
+def test_cli_stored_creds_used_without_login(mcp_server):
+    """Valid stored credentials are injected as Authorization header without prompting OAuth."""
+    from unittest.mock import patch
+    import time as _time
+
+    fake_creds = {
+        "access_token": "tok_stored",
+        "expires_at": _time.time() + 3600,
+    }
+
+    runner = CliRunner()
+    with patch("murl.cli.get_credentials", return_value=fake_creds), \
+         patch("murl.cli.is_expired", return_value=False), \
+         patch("murl.cli.authorize") as mock_auth:
+        result = runner.invoke(main, [f"{TEST_SERVER_URL}/tools"])
+
+    assert not mock_auth.called, "authorize should NOT be called when valid creds exist"
+    assert result.exit_code == 0
+
+
+def test_cli_401_retry_triggers_oauth(mcp_server):
+    """A 401 error on first request triggers OAuth and retries."""
+    from unittest.mock import patch
+    import time as _time
+
+    fake_creds = {
+        "client_id": "cid",
+        "access_token": "tok_retry",
+        "refresh_token": "rt",
+        "expires_at": _time.time() + 3600,
+        "token_endpoint": "https://auth.example.com/token",
+        "registration_endpoint": "https://auth.example.com/register",
+        "server_url": "http://localhost",
+    }
+
+    call_count = [0]
+    original_make_mcp_request = None
+
+    async def mock_make_mcp_request(*args, **kwargs):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            raise Exception("HTTP 401 Unauthorized")
+        # Import the real function and call it for the retry
+        from murl.cli import make_mcp_request as real_fn
+        return await real_fn(*args, **kwargs)
+
+    runner = CliRunner()
+    with patch("murl.cli.make_mcp_request", side_effect=mock_make_mcp_request), \
+         patch("murl.cli.authorize", return_value=fake_creds) as mock_auth, \
+         patch("murl.cli.save_credentials"):
+        result = runner.invoke(main, [f"{TEST_SERVER_URL}/tools"])
+
+    assert mock_auth.called, "authorize should be called after 401"
+    assert call_count[0] >= 2, "Should retry after 401"
+
+
+def test_cli_no_auth_skips_all_auth(mcp_server):
+    """--no-auth skips credential loading and OAuth entirely."""
+    from unittest.mock import patch
+
+    runner = CliRunner()
+    with patch("murl.cli.get_credentials") as mock_get, \
+         patch("murl.cli.authorize") as mock_auth:
+        result = runner.invoke(main, [f"{TEST_SERVER_URL}/tools", "--no-auth"])
+
+    assert not mock_get.called, "get_credentials should NOT be called with --no-auth"
+    assert not mock_auth.called, "authorize should NOT be called with --no-auth"
+    assert result.exit_code == 0

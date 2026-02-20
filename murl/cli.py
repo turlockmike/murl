@@ -417,7 +417,7 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
                     except OAuthError:
                         creds = authorize(base_url)
                         save_credentials(base_url, creds)
-                headers["Authorization"] = f"Bearer {creds['access_token']}"
+                headers["Authorization"] = f"Bearer {creds['access_token']}"  # always set, whether refreshed or not
             elif login:
                 creds = authorize(base_url)
                 save_credentials(base_url, creds)

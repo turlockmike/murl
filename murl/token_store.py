@@ -32,6 +32,10 @@ def get_credentials(server_url: str) -> Optional[dict]:
 def save_credentials(server_url: str, creds: dict) -> None:
     """Persist credentials for a server URL."""
     CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(CREDENTIALS_DIR, 0o700)
+    except OSError:
+        pass  # Best-effort directory permissions
     path = CREDENTIALS_DIR / f"{_key_for_url(server_url)}.json"
     data_to_save = dict(creds)
     data_to_save["server_url"] = server_url
