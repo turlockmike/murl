@@ -219,11 +219,12 @@ async def make_mcp_request(
             click.echo(f"Headers: {json.dumps(headers, indent=2)}", err=True)
         click.echo("", err=True)
 
-    # Create httpx client with custom headers if provided
+    # Create httpx client with custom headers and reasonable timeout
     import httpx
-    http_client = None
-    if headers:
-        http_client = httpx.AsyncClient(headers=headers)
+    http_client = httpx.AsyncClient(
+        headers=headers or {},
+        timeout=httpx.Timeout(30.0, connect=10.0),
+    )
 
     try:
         async with streamable_http_client(base_url, http_client=http_client) as (read, write, get_session_id):
