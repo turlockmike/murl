@@ -429,7 +429,7 @@ def main(url: Optional[str], data_flags: Tuple[str, ...], header_flags: Tuple[st
         except (Exception, ExceptionGroup) as req_err:
             err_str = str(req_err)
             # Unwrap ExceptionGroup to check nested exceptions for 401
-            if isinstance(req_err, (ExceptionGroup, BaseExceptionGroup)):
+            if isinstance(req_err, ExceptionGroup):
                 for exc in req_err.exceptions:
                     exc_str = str(exc)
                     if "401" in exc_str or "Unauthorized" in exc_str:
