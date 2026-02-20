@@ -12,33 +12,33 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    
+
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build wheel
-    
+
     - name: Build package
       run: |
         python -m build
-    
+
     - name: Extract version from tag
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-    
+
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         verbose: true
-    
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
@@ -50,3 +50,63 @@ jobs:
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+
+    steps:
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Wait for PyPI to index
+      run: |
+        VERSION=${{ steps.get_version.outputs.VERSION }}
+        for i in $(seq 1 30); do
+          if curl -sf "https://pypi.org/pypi/mcp-curl/${VERSION}/json" > /dev/null 2>&1; then
+            echo "PyPI has version ${VERSION}"
+            exit 0
+          fi
+          echo "Waiting for PyPI... (attempt $i/30)"
+          sleep 10
+        done
+        echo "::error::Timed out waiting for PyPI"
+        exit 1
+
+    - name: Get sdist URL and SHA256
+      id: pypi
+      run: |
+        VERSION=${{ steps.get_version.outputs.VERSION }}
+        JSON=$(curl -sf "https://pypi.org/pypi/mcp-curl/${VERSION}/json")
+        URL=$(echo "$JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print([u['url'] for u in d['urls'] if u['packagetype']=='sdist'][0])")
+        SHA=$(echo "$JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print([u['digests']['sha256'] for u in d['urls'] if u['packagetype']=='sdist'][0])")
+        echo "URL=${URL}" >> $GITHUB_OUTPUT
+        echo "SHA=${SHA}" >> $GITHUB_OUTPUT
+
+    - name: Checkout homebrew tap
+      uses: actions/checkout@v4
+      with:
+        repository: turlockmike/homebrew-murl
+        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+    - name: Update formula
+      run: |
+        VERSION=${{ steps.get_version.outputs.VERSION }}
+        URL="${{ steps.pypi.outputs.URL }}"
+        SHA="${{ steps.pypi.outputs.SHA }}"
+
+        # Update url, sha256, and test version
+        sed -i "s|url \"https://files.pythonhosted.org/.*\"|url \"${URL}\"|" Formula/murl.rb
+        sed -i "s|sha256 \"[a-f0-9]\{64\}\"|sha256 \"${SHA}\"|" Formula/murl.rb
+        sed -i "s|murl version [0-9.]*|murl version ${VERSION}|" Formula/murl.rb
+
+    - name: Commit and push
+      run: |
+        VERSION=${{ steps.get_version.outputs.VERSION }}
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add Formula/murl.rb
+        git commit -m "Update murl to ${VERSION}"
+        git push
