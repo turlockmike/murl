@@ -54,14 +54,25 @@ jobs:
   update-homebrew:
     needs: release
     runs-on: ubuntu-latest
-    if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
 
     steps:
+    - name: Check for tap token
+      id: check_token
+      env:
+        TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      run: |
+        if [ -z "$TOKEN" ]; then
+          echo "HOMEBREW_TAP_TOKEN not set, skipping homebrew update"
+          echo "skip=true" >> $GITHUB_OUTPUT
+        fi
+
     - name: Extract version from tag
+      if: steps.check_token.outputs.skip != 'true'
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
     - name: Wait for PyPI to index
+      if: steps.check_token.outputs.skip != 'true'
       run: |
         VERSION=${{ steps.get_version.outputs.VERSION }}
         for i in $(seq 1 30); do
@@ -76,6 +87,7 @@ jobs:
         exit 1
 
     - name: Get sdist URL and SHA256
+      if: steps.check_token.outputs.skip != 'true'
       id: pypi
       run: |
         VERSION=${{ steps.get_version.outputs.VERSION }}
@@ -86,12 +98,14 @@ jobs:
         echo "SHA=${SHA}" >> $GITHUB_OUTPUT
 
     - name: Checkout homebrew tap
+      if: steps.check_token.outputs.skip != 'true'
       uses: actions/checkout@v4
       with:
         repository: turlockmike/homebrew-murl
         token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
     - name: Update formula
+      if: steps.check_token.outputs.skip != 'true'
       run: |
         VERSION=${{ steps.get_version.outputs.VERSION }}
         URL="${{ steps.pypi.outputs.URL }}"
@@ -103,6 +117,7 @@ jobs:
         sed -i "s|murl version [0-9.]*|murl version ${VERSION}|" Formula/murl.rb
 
     - name: Commit and push
+      if: steps.check_token.outputs.skip != 'true'
       run: |
         VERSION=${{ steps.get_version.outputs.VERSION }}
         git config user.name "github-actions[bot]"
