@@ -50,10 +50,10 @@ def test_fetch_server_list_tools():
     if result.exit_code != 0:
         pytest.skip(f"Server returned error: {result.output}")
     
-    # Verify we got a valid JSON response
+    # Verify we got valid NDJSON response (one JSON object per line)
     try:
-        output = json.loads(result.output)
-        assert isinstance(output, list), "Expected a list of tools"
+        output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
+        assert isinstance(output, list) and len(output) > 0, "Expected at least one tool"
     except json.JSONDecodeError as e:
         pytest.fail(f"Invalid JSON response: {e}\nOutput: {result.output}")
 
@@ -101,9 +101,9 @@ def test_deepwiki_server_list_tools():
     if result.exit_code != 0:
         pytest.skip(f"Server returned error: {result.output}")
     
-    # Verify we got a valid JSON response
+    # Verify we got valid NDJSON response (one JSON object per line)
     try:
-        output = json.loads(result.output)
-        assert isinstance(output, list), "Expected a list of tools"
+        output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
+        assert isinstance(output, list) and len(output) > 0, "Expected at least one tool"
     except json.JSONDecodeError as e:
         pytest.fail(f"Invalid JSON response: {e}\nOutput: {result.output}")
