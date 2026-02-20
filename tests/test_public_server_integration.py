@@ -43,13 +43,13 @@ def test_fetch_server_list_tools():
     the public Fetch MCP server.
     """
     runner = CliRunner()
-    result = runner.invoke(main, [f"{FETCH_SERVER_URL}/tools"])
-    
+    result = runner.invoke(main, [f"{FETCH_SERVER_URL}/tools", "--no-auth"])
+
     # The test should succeed if the server is reachable
     # If it fails, we want to see the output for debugging
     if result.exit_code != 0:
         pytest.skip(f"Server returned error: {result.output}")
-    
+
     # Verify we got valid NDJSON response (one JSON object per line)
     try:
         output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
@@ -64,21 +64,22 @@ def test_fetch_server_list_tools():
 )
 def test_fetch_server_connectivity():
     """Test basic connectivity to the Fetch server.
-    
+
     This is a lightweight test that just verifies the server responds.
     """
     runner = CliRunner()
-    result = runner.invoke(main, [f"{FETCH_SERVER_URL}/tools"])
-    
+    result = runner.invoke(main, [f"{FETCH_SERVER_URL}/tools", "--no-auth"])
+
     # Check exit code first - connection failures typically result in non-zero codes
     # Exit code 0 means success, exit code 1 may indicate server-side issues but connection worked
     if result.exit_code not in [0, 1]:
         pytest.skip(f"Server connection failed with exit code {result.exit_code}")
-    
-    # If exit code is good, verify we got some response (not just an error message)
+
+    # If exit code is good, verify we got some NDJSON response
     if result.exit_code == 0:
         try:
-            json.loads(result.output)
+            lines = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
+            assert len(lines) > 0
         except json.JSONDecodeError:
             pytest.skip(f"Server returned non-JSON response: {result.output[:100]}")
 
@@ -94,7 +95,7 @@ def test_deepwiki_server_list_tools():
     the DeepWiki MCP server.
     """
     runner = CliRunner()
-    result = runner.invoke(main, [f"{DEEPWIKI_URL}/tools"])
+    result = runner.invoke(main, [f"{DEEPWIKI_URL}/tools", "--no-auth"])
     
     # The test should succeed if the server is reachable
     # If it fails, we want to see the output for debugging
