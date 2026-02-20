@@ -90,7 +90,7 @@ def test_mcp_proxy_list_tools(mcp_proxy_server):
     result = runner.invoke(main, [f"{mcp_proxy_server}/tools"])
     
     assert result.exit_code == 0
-    output = json.loads(result.output)
+    output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
     assert len(output) == 2
     assert output[0]["name"] == "echo"
     assert output[1]["name"] == "weather"
@@ -113,7 +113,7 @@ def test_mcp_proxy_call_tool(mcp_proxy_server):
     ])
     
     assert result.exit_code == 0
-    output = json.loads(result.output)
+    output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
     assert isinstance(output, list)
     assert len(output) > 0
     assert output[0]["type"] == "text"
@@ -135,7 +135,7 @@ def test_mcp_proxy_multiple_args(mcp_proxy_server):
     ])
     
     assert result.exit_code == 0
-    output = json.loads(result.output)
+    output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
     assert isinstance(output, list)
     assert len(output) > 0
     assert output[0]["type"] == "text"
@@ -153,7 +153,7 @@ def test_mcp_proxy_list_resources(mcp_proxy_server):
     result = runner.invoke(main, [f"{mcp_proxy_server}/resources"])
     
     assert result.exit_code == 0
-    output = json.loads(result.output)
+    output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
     assert len(output) == 2
     assert "uri" in output[0]
     assert "name" in output[0]
@@ -173,7 +173,7 @@ def test_mcp_proxy_read_resource(mcp_proxy_server):
     ])
     
     assert result.exit_code == 0
-    output = json.loads(result.output)
+    output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
     assert isinstance(output, list)
     assert len(output) > 0
     assert output[0]["uri"] == "file:///data/file.txt"
@@ -191,7 +191,7 @@ def test_mcp_proxy_list_prompts(mcp_proxy_server):
     result = runner.invoke(main, [f"{mcp_proxy_server}/prompts"])
     
     assert result.exit_code == 0
-    output = json.loads(result.output)
+    output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
     assert len(output) == 2
     assert output[0]["name"] == "greeting"
     assert "description" in output[0]
@@ -211,7 +211,7 @@ def test_mcp_proxy_get_prompt(mcp_proxy_server):
     ])
     
     assert result.exit_code == 0
-    output = json.loads(result.output)
+    output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
     assert isinstance(output, list)
     assert len(output) > 0
     assert output[0]["role"] == "user"
@@ -232,7 +232,7 @@ def test_mcp_proxy_with_json_data(mcp_proxy_server):
     ])
     
     assert result.exit_code == 0
-    output = json.loads(result.output)
+    output = [json.loads(line) for line in result.output.strip().split('\n') if line.strip()]
     assert isinstance(output, list)
     assert len(output) > 0
     assert output[0]["type"] == "text"
