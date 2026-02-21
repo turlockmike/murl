@@ -1,13 +1,30 @@
-# Agent Mode
+# Output Format
 
-murl implements [POSIX Agent Standard (Level 2)](https://github.com/turlockmike/posix-agent-standard) for AI agent compatibility. Use `--agent` to enable.
+murl is LLM-friendly by default — compact JSON to stdout, structured errors to stderr. Use `-v` for human-readable pretty-printing.
 
-## Behavior
+## stdout
 
-- **Pure JSON output:** Compact JSON to stdout (no pretty-printing)
-- **JSON Lines (NDJSON):** List operations output one JSON object per line
-- **Structured errors:** JSON error objects to stderr with error codes
-- **Non-interactive:** No prompts or progress indicators
+- **Single results:** compact JSON (one line, no extra whitespace)
+- **Lists:** NDJSON (one JSON object per line)
+
+```bash
+# Single tool call — compact JSON
+murl http://localhost:3000/tools/echo -d message=hello
+{"content":[{"type":"text","text":"hello"}]}
+
+# List tools — one JSON object per line
+murl http://localhost:3000/tools
+{"name":"echo","description":"Echo a message",...}
+{"name":"fetch","description":"Fetch a URL",...}
+```
+
+## stderr
+
+Errors are structured JSON:
+
+```json
+{"error": "HTTPSTATUSERROR", "message": "401 Unauthorized", "code": 1}
+```
 
 ## Exit Codes
 
@@ -16,34 +33,28 @@ murl implements [POSIX Agent Standard (Level 2)](https://github.com/turlockmike/
 | `0` | Success |
 | `1` | General error (connection, timeout, server error) |
 | `2` | Invalid arguments (malformed URL, invalid data format) |
-| `100` | MCP server error (reported via JSON `code` field, not exit code) |
 
-## Examples
+## Verbose Mode
+
+`-v` switches to human-friendly output: pretty-printed JSON and request/response debug info on stderr.
 
 ```bash
-# Agent-optimized help
-murl --agent --help
-
-# List tools (NDJSON — one JSON object per line)
-murl --agent http://localhost:3000/tools
-
-# Call a tool (compact JSON)
-murl --agent http://localhost:3000/tools/echo -d message=hello
-
-# Process with jq
-murl --agent http://localhost:3000/tools | jq -c '.'
-
-# Handle errors programmatically
-if ! result=$(murl --agent http://localhost:3000/tools/invalid 2>&1); then
-  echo "Error: $result" | jq -r '.message'
-fi
+murl http://localhost:3000/tools -v
 ```
 
-## Human Mode vs Agent Mode
+## Piping
 
-| Feature | Human Mode | Agent Mode (`--agent`) |
-|---------|-----------|------------------------|
-| JSON Output | Pretty-printed (indented) | Compact (no spaces) |
-| List Output | JSON array | JSON Lines (NDJSON) |
-| Error Output | Friendly message to stderr | Structured JSON to stderr |
-| Exit Codes | 0, 1, or 2 | Semantic (0, 1, 2) |
+Output is designed for standard Unix pipelines:
+
+```bash
+# Format with jq
+murl http://localhost:3000/tools | jq .
+
+# Extract fields
+murl http://localhost:3000/tools | jq -r '.name'
+
+# Handle errors programmatically
+if ! result=$(murl http://localhost:3000/tools/invalid 2>/dev/null); then
+  echo "failed"
+fi
+```

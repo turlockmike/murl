@@ -98,8 +98,9 @@ murl http://localhost:3000/tools | jq '.[0].name'
 |---|---|
 | `-d, --data` | Add key=value or JSON data (repeatable) |
 | `-H, --header` | Add HTTP header (repeatable) |
-| `-v, --verbose` | Print request/response details to stderr |
-| `--agent` | Agent mode — compact JSON, NDJSON lists, structured errors |
+| `-v, --verbose` | Pretty-print output, show request debug info |
+| `--login` | Force OAuth re-authentication |
+| `--no-auth` | Skip all authentication |
 | `--version` | Show version info |
 | `--upgrade` | Upgrade to latest version |
 
@@ -120,7 +121,7 @@ murl https://example.com/mcp/tools --login
 
 ## Documentation
 
-- [Agent Mode](docs/agent-mode.md) — NDJSON output, structured errors, exit codes
+- [Output & Exit Codes](docs/agent-mode.md) — NDJSON format, structured errors, exit codes
 - [MCP Server Setup](docs/mcp-servers.md) — mcp-proxy, Streamable HTTP, local servers
 - [Contributing](docs/contributing.md) — development setup, testing, releasing
 
