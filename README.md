@@ -35,20 +35,19 @@ To upgrade: `brew upgrade turlockmike/murl/murl` or `murl --upgrade`
 ## Quick Start
 
 ```bash
-# List tools on a public MCP server
-murl https://remote.mcpservers.org/fetch/mcp/tools
+# List tools on a server (NDJSON output — one JSON object per line)
+murl https://mcp.deepwiki.com/mcp/tools | jq -r '.name'
 
-# Call a tool with arguments
-murl https://remote.mcpservers.org/fetch/mcp/tools/fetch -d url=https://example.com
+# Call a tool and extract the result
+murl https://remote.mcpservers.org/fetch/mcp/tools/fetch -d url=https://example.com | jq -r '.text'
 
-# Use a local server via mcp-proxy
-mcp-proxy --port 3000 uvx mcp-server-time
-murl http://localhost:3000/tools/get_current_time -d timezone=America/New_York
+# Query a repo's wiki structure
+murl https://mcp.deepwiki.com/mcp/tools/read_wiki_structure -d repoName=anthropics/claude-code | jq -r '.text'
 ```
 
 **Public demo servers:**
-- `https://remote.mcpservers.org/fetch/mcp` — fetch web content
 - `https://mcp.deepwiki.com/mcp` — GitHub repository docs
+- `https://remote.mcpservers.org/fetch/mcp` — fetch web content
 
 ## Usage
 
@@ -85,11 +84,11 @@ murl http://localhost:3000/tools/config -d '{"settings": {"theme": "dark"}}'
 # Custom headers
 murl http://localhost:3000/tools -H "Authorization: Bearer token123"
 
-# Verbose mode (prints request/response to stderr)
+# Verbose mode (pretty-prints output, shows request debug info)
 murl http://localhost:3000/tools -v
 
-# Pipe to jq
-murl http://localhost:3000/tools | jq '.[0].name'
+# Pipe NDJSON to jq
+murl http://localhost:3000/tools | jq -r '.name'
 ```
 
 ### Options
