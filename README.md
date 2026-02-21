@@ -4,7 +4,7 @@
 
 A curl-like CLI for [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers. Query tools, resources, and prompts using simple REST-like URLs.
 
-**[POSIX Agent Standard](https://github.com/turlockmike/posix-agent-standard) Level 2 compliant** — works natively with AI agents.
+**LLM-friendly:** compact JSON output, NDJSON streaming, structured errors to stderr, semantic exit codes. Built for agents to call from shell.
 
 <p align="center">
   <img src="images/logo.png" alt="murl logo" width="400">
