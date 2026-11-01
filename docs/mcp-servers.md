@@ -52,6 +52,21 @@ mcp-proxy --port 3001 uvx mcp-server-filesystem /path/to/directory
 mcp-proxy --port 3002 npx -y @modelcontextprotocol/server-sequential-thinking
 ```
 
+### Servers bundled for testing
+
+The repo ships two throwaway MCP servers — one per protocol revision — for
+trying murl against something without any setup:
+
+```bash
+python tests/serve_test_server.py both
+murl http://localhost:8765/mcp tools/list --no-auth   # 2025 era
+murl http://localhost:8767/mcp tools/list --no-auth   # 2026-07-28
+```
+
+Both expose `echo` and `weather`. See
+[Contributing](contributing.md#local-mcp-servers-one-per-protocol-revision) for
+what each revision requires and how to use them as pytest fixtures.
+
 ## Streamable HTTP
 
 murl includes full support for the MCP Streamable HTTP transport:

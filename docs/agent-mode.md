@@ -31,7 +31,7 @@ Errors are structured JSON:
 | Code | Meaning |
 |------|---------|
 | `0` | Success |
-| `1` | General error (connection, timeout, server error) |
+| `1` | General error (connection, timeout, server error), or a failed tool call: `TOOL_ERROR`, `AUTHORIZATION_REQUIRED`, `INPUT_REQUIRED`, `AUTH_FAILED` (see the README, "Default Behavior") |
 | `2` | Invalid arguments (malformed URL, invalid data format) |
 
 ## Verbose Mode
