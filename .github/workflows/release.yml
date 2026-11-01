@@ -56,13 +56,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check for tap token
+    - name: Check for tap deploy key
       id: check_token
       env:
-        TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        TOKEN: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
       run: |
         if [ -z "$TOKEN" ]; then
-          echo "HOMEBREW_TAP_TOKEN not set, skipping homebrew update"
+          echo "HOMEBREW_TAP_DEPLOY_KEY not set, skipping homebrew update"
           echo "skip=true" >> $GITHUB_OUTPUT
         fi
 
@@ -97,7 +97,8 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: turlockmike/homebrew-murl
-        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        # Write-enabled deploy key on homebrew-murl only; deploy keys do not expire.
+        ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
         path: tap
 
     - name: Install uv
