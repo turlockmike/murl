@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, master ]
 
+# Read the code and upload coverage; nothing here writes to the repo.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -43,3 +47,49 @@ jobs:
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
+
+  # A cancelled run leaves `test` neither successful nor failed, and `always()`
+  # below does not treat cancellation as a failure. Branch protection sees an
+  # un-run context and holds, so cancellation needs its own failing job.
+  check-cancellation:
+    name: check for cancellation
+    if: cancelled()
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fail on cancellation
+      run: |
+        echo "Workflow was cancelled, failing this job for branch protection."
+        exit 1
+
+  # The single context branch protection requires. Aggregating here keeps the
+  # required check independent of the matrix: changing the Python versions in
+  # `test` does not require editing the ruleset.
+  required-checks:
+    name: required tests passed
+    if: always()
+    needs: [test, check-cancellation]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check job results
+      env:
+        JOB_RESULTS: ${{ toJson(needs) }}
+        TEST_RESULT: ${{ needs.test.result }}
+      run: |
+        echo "$JOB_RESULTS"
+        # `test` must have actually run and passed. Accepting `skipped` here
+        # would let a run where the matrix never executed — a path filter, a
+        # bad `if` — report green with zero tests, which is the failure this
+        # gate exists to prevent.
+        if [ "$TEST_RESULT" != "success" ]; then
+          echo "Test matrix did not succeed (result: $TEST_RESULT)."
+          exit 1
+        fi
+        # `skipped` is tolerated here because check-cancellation is skipped on
+        # every healthy run. That tolerance is safe for `test` only because the
+        # explicit check above has already rejected a skipped matrix.
+        if echo "$JOB_RESULTS" | jq -e 'to_entries|any(.value.result != "success" and .value.result != "skipped")' >/dev/null; then
+          echo "One or more required jobs did not pass."
+          exit 1
+        fi
+        echo "All required jobs passed."
